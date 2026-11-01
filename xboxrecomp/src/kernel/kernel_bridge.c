@@ -2117,6 +2117,7 @@ static NTSTATUS kdisp_wait(uint32_t count, const uint32_t *vas,
 {
     DWORD start = GetTickCount();
     uint32_t i;
+    int cpu_locked = 0;
 
     kdisp_init();
     EnterCriticalSection(&g_kdisp_cs);
@@ -2133,6 +2134,7 @@ static NTSTATUS kdisp_wait(uint32_t count, const uint32_t *vas,
                     if (vas[i])
                         kdisp_try_acquire(vas[i], 1);
                 LeaveCriticalSection(&g_kdisp_cs);
+                if (cpu_locked) xbox_gil_leave();
                 return STATUS_SUCCESS;
             }
         } else {
@@ -2140,6 +2142,7 @@ static NTSTATUS kdisp_wait(uint32_t count, const uint32_t *vas,
                 if (vas[i] ? kdisp_try_acquire(vas[i], 1)
                            : WaitForSingleObject(hosts[i], 0) == WAIT_OBJECT_0) {
                     LeaveCriticalSection(&g_kdisp_cs);
+                    if (cpu_locked) xbox_gil_leave();
                     return (NTSTATUS)(STATUS_SUCCESS + i);
                 }
             }
@@ -2150,7 +2153,19 @@ static NTSTATUS kdisp_wait(uint32_t count, const uint32_t *vas,
             if (ms != INFINITE) {
                 DWORD spent = GetTickCount() - start;
                 if (spent >= ms) {
+                    if (ms && !cpu_locked) {
+                        /* A host timeout cannot pre-empt a running guest DPC.
+                         * Re-enter the virtual CPU before deciding timeout;
+                         * its completion may already have signalled us.
+                         * Never acquire the CPU while holding the object lock. */
+                        LeaveCriticalSection(&g_kdisp_cs);
+                        xbox_gil_enter();
+                        cpu_locked = 1;
+                        EnterCriticalSection(&g_kdisp_cs);
+                        continue;
+                    }
                     LeaveCriticalSection(&g_kdisp_cs);
+                    if (cpu_locked) xbox_gil_leave();
                     return STATUS_TIMEOUT;
                 }
                 if (ms - spent < slice)
@@ -10300,6 +10315,8 @@ void xbox_threads_dump(void)
  * calls a second in a race, each one taking the lock back from the main
  * thread (race frames of 0.5-1.5 s in Eden). RECOMP_KERNEL_FAST=0 releases
  * it for these too. */
+static int kernel_call_blocks(int slot);
+
 static int kernel_call_keeps_gil(int slot)
 {
     static int on = -1;
@@ -10308,9 +10325,19 @@ static int kernel_call_keeps_gil(int slot)
         const char *e = getenv("RECOMP_KERNEL_FAST");
         on = !(e && *e == '0');
     }
-    if (!on || slot < 0 || slot >= XBOX_KERNEL_THUNK_TABLE_SIZE)
+    if (slot < 0 || slot >= XBOX_KERNEL_THUNK_TABLE_SIZE)
         return 0;
     ord = g_slot_ordinals[slot];
+    /* A non-blocking kernel import is still part of the current ISR/DPC.
+     * Yielding here lets a timed-out waiter cancel a request while its
+     * completion callback is still cleaning up, before it signals the event.
+     * Preserve run-to-completion ordering; actual waits and potentially
+     * contended guest critical sections must still release the guest CPU. */
+    if (t_gil_nopreempt && !kernel_call_blocks(slot) &&
+        ord != 277 && ord != 278)
+        return 1;
+    if (!on)
+        return 0;
     return ord == 125 || ord == 126 || ord == 127 || ord == 128    /* KeQuery* time */
         || ord == 103 || ord == 129 || ord == 130                    /* KeGetCurrentIrql, */
         || ord == 160 || ord == 161;          /* KeRaiseIrqlTo*, KfRaise/LowerIrql */
