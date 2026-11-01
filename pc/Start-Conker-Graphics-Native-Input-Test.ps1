@@ -11,8 +11,6 @@ $env:CLX_NATIVE_MOUSE='1'
 $env:CLX_BORDERLESS='1'
 $env:RECOMP_INPUT_DIAG='1'
 $env:CLX_GFX_INPUT_DIAG='1'
-# Local compatibility exception: isolate the confirmed menu regression.
-$env:CLX_GFX_LAHF_SKIP='003F57D0'
 $env:RECOMP_USB_HC='0'
 $env:RECOMP_USB_PADS='1'
 $env:RECOMP_USB_PORT='2'

@@ -58,7 +58,7 @@ set(GAME_SOURCES
     src/clx_mouse.c
 )
 
-option(CLX_EXPERIMENTAL_INPUT_COMPAT "Build the opt-in Windows input/menu test bridge" OFF)
+option(CLX_EXPERIMENTAL_INPUT_COMPAT "Build the opt-in Windows input test bridge" OFF)
 if(CLX_EXPERIMENTAL_INPUT_COMPAT)
     if(NOT WIN32 OR MSVC)
         message(FATAL_ERROR "The experimental input bridge is tested with Windows/MinGW only")

@@ -1,60 +1,47 @@
-# Experimental Windows input and menu compatibility test
+# Experimental Windows input recovery test
 
-This is a draft workaround for the Windows startup-input failure and the rainbow
-bottles/candles/fireplace observed after regenerating with the x87 LAHF fix.
-The general lifter correction and slingshot yaw remain enabled.
+This opt-in bridge is a diagnostic fallback for stalled guest USB input. It is
+not a root-cause USB fix and remains disabled in normal builds.
 
-## What was established
+## Graphics correction
 
-- Guest controller reports stopped refreshing after startup, even with SDL focus.
-  Changing the virtual controller's port alone did not restore input.
-- The opt-in bridge refreshes the existing host report at XInputGetState and uses
-  the title's open-handle table. The original guest implementation remains the
-  fallback when CLX_NATIVE_PAD is unset or 0.
-- Report sampling/hooks are serialized between the guest and USB scheduler.
-- Live A/B testing isolated the menu regression to LAHF in 0x003F57D0. Disabling
-  only that site's new behavior restores normal menu textures. The exact
-  downstream graphics defect is still unknown. This exception intentionally
-  preserves old behavior in that one path; it is not a general CPU fix.
+The menu's green/rainbow textures are fixed upstream in v0.54.0 by the larger
+render-surface pool from #10. The corrected LAHF translation must remain enabled.
+The earlier per-function graphics exception has been removed. Regenerate a clean
+private C directory if you used the previous version of this patch tool.
 
-## Build the opt-in test from your own retail NTSC XBE
+## Build the opt-in input test
 
-1. Generate C normally using tools/regen.sh into a **separate private directory**.
+1. Generate C normally from your own retail NTSC XBE into a separate private directory.
 2. Run `python tools/windows_input_compat.py <generated-directory>`.
-3. Configure the Windows/MinGW build with
-   `-DNFSU2_GEN_DIR=<generated-directory> -DCLX_EXPERIMENTAL_INPUT_COMPAT=ON`.
-4. Build normally. Copy the resulting executable as
-   `clx-graphics-native-test.exe` beside the normal Windows distribution and
-   copy both `pc/Start-Conker-Graphics-Native-Input-Test.*` files there.
+   This only renames the original input function so it remains available as a fallback.
+3. Configure Windows/MinGW with `-DNFSU2_GEN_DIR=<generated-directory>` and
+   `-DCLX_EXPERIMENTAL_INPUT_COMPAT=ON`, then build normally.
+4. Copy the executable as `clx-graphics-native-test.exe` beside the normal
+   distribution and copy `pc/Start-Conker-Graphics-Native-Input-Test.*` there.
+   These historical filenames are retained; the test no longer patches graphics.
 5. Run `Start-Conker-Graphics-Native-Input-Test.bat`.
 
-The launcher selects HC0, four ports, one pad at port 2 (logical player 1),
-enables CLX_NATIVE_PAD=1 and CLX_GFX_LAHF_SKIP=003F57D0, and clears synthetic
-input scripts. It preserves the normal executable and existing settings.
-Do not use the patched generated directory for a normal build; CMake checks it.
-Generated game code and game data must not be committed.
+The launcher enables `CLX_NATIVE_PAD=1` and the diagnostic virtual-port layout.
+The original guest implementation remains the fallback when that variable is
+unset or zero. This test preserves the normal executable and settings.
+Never commit generated game code or game assets.
 
-## Validation and limits
+## Current status
 
-A Windows test based on v0.53 plus #8/#9 loaded a save, accepted automated menu
-commands and camera rotation, and returned to the Options menu with normal
-bottles, candles and fireplace. The player then confirmed physical keyboard
-and controller input work. Repeated cold-start reliability, the mouse in this
-specific bridge build, other platforms and multiple-controller behavior have
-not been established. The attached tested executable predates the Android
-merge; it is not a v0.54 build. The PR is based on current main for review.
+The earlier player-tested executable was v0.53 + #8/#9, before #10. Its release
+is retained as historical test evidence, not as the recommended graphics fix.
+New tests must use v0.54.0 or freshly generated current-main code without a LAHF
+exception. The USB report lock and environment-pointer fix are split into #12.
+The startup-stall root-cause investigation is separate from this bridge.
 
-Headless tests use no game code:
+Synthetic checks:
 
-- `python tests/test_windows_input_compat.py`: exact-site selection, preserving
-  slingshot, idempotency and rejecting an unexpected translation without writes.
-- Compile `tests/test_native_pad.c` with includes for the private generated
-  directory and `xboxrecomp/include`: handles, fresh packets, 22-byte layout,
-  invalid inputs and stdcall ABI.
-- Compile `tests/test_report_concurrency.c` with includes for `xboxrecomp/src`
-  and `xboxrecomp/src/platform`: 20,000 real reports from four threads, hook
-  serialization, bytes and output canary. These C tests target Windows/MinGW.
+- `python tests/test_windows_input_compat.py`: input-only renaming, preserving
+  unrelated translation, idempotency, and rejection without writes.
+- `tests/test_native_pad.c`: open handles, fresh packets, report layout, invalid
+  inputs and stdcall ABI, with a synthetic generated-header fixture.
+- `tests/test_report_concurrency.c`: 20,000 real reports from four readers.
 
-This is intentionally opt-in pending a real fix for stalled USB polling and
-understanding of the graphics cache path. It should not be merged as an
-unqualified replacement for the normal input/rendering implementation.
+The bridge's repeated cold-start reliability, mouse interaction, multiple
+controllers and other platforms are not established. Keep this PR experimental.
