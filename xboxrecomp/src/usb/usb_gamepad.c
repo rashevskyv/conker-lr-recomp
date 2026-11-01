@@ -19,6 +19,18 @@
 #include <stdlib.h>
 
 #include <string.h>
+#include <stdatomic.h>
+
+/* Serialize report sampling and mutable script/hook state. */
+static atomic_flag report_lock = ATOMIC_FLAG_INIT;
+static void report_enter(void)
+{
+    while (atomic_flag_test_and_set_explicit(&report_lock, memory_order_acquire)) { }
+}
+static void report_leave(void)
+{
+    atomic_flag_clear_explicit(&report_lock, memory_order_release);
+}
 
 /* ---- descriptors ------------------------------------------------------- */
 
@@ -421,12 +433,15 @@ static void pad_live(int dev, unsigned long now)
         spec[strcspn(spec, "\r\n")] = 0;
         {   /* parse one step through the script parser */
             PadStep saved[PAD_SCRIPT_MAX];
-            const char *old = getenv("RECOMP_PAD_SCRIPT");
+            const char *prior = getenv("RECOMP_PAD_SCRIPT");
+            char *old = prior ? strdup(prior) : NULL;
+            if (prior && !old) break;
             memcpy(saved, s_script_steps[0], sizeof saved);
             setenv("RECOMP_PAD_SCRIPT", spec, 1);
             pad_script_parse(0);
             if (old) setenv("RECOMP_PAD_SCRIPT", old, 1);
             else unsetenv("RECOMP_PAD_SCRIPT");
+            free(old);
             if (s_script_count[0] == 1) {
                 PadStep st = s_script_steps[0][0];
                 memcpy(s_script_steps[0], saved, sizeof saved);
@@ -515,7 +530,7 @@ static void rumble_send(int dev);
 void (*usb_gamepad_hook)(uint8_t *report, unsigned host_buttons);
 void (*usb_gamepad_mouse_hook)(uint8_t *report);
 
-int usb_gamepad_report(int dev, uint8_t *out, int max)
+static int gamepad_report_locked(int dev, uint8_t *out, int max)
 {
     XBOX_INPUT_STATE state;
     const XBOX_GAMEPAD *g;
@@ -617,6 +632,17 @@ done:
         }
     }
     return 20;
+}
+
+int usb_gamepad_report(int dev, uint8_t *out, int max)
+{
+    int result;
+    if (dev < 0 || dev >= USB_GAMEPADS || !out || max < 20)
+        return 0;
+    report_enter();
+    result = gamepad_report_locked(dev, out, max);
+    report_leave();
+    return result;
 }
 
 /* ---- the output report ------------------------------------------------- */
