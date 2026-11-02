@@ -1499,3 +1499,63 @@ float clx_bubble_height(void)
     if (s_bubble_ready != g_clx.bubble_wide) bubble_load();
     return s_bubble_height;
 }
+
+/* ── Vignette off (vignette=0 / CLX_VIGNETTE=0) ──
+ *
+ * In the levels and the pub the game darkens the screen's edges: an overlay
+ * object drawn by 0x0015CAF0 (cdecl, the object at [esp+4]; called through
+ * the overlay types' tables from 0x00587880 on) as a 320x240 quad at the
+ * origin with two layers, a copy of the screen (texture id 0xFFFFFFFE) and
+ * the edge mask (0xFE), in a neutral dark grey. Object: +0x2C x, y, w, h
+ * (floats), +0x4D..+0x4F colour B G R, +0x68 layer count, +0x6C the layers'
+ * texture ids. With the setting off that one overlay is not drawn; a tinted
+ * one (the red flash when Conker is hurt) is drawn as ever. The object
+ * layout is from giacomozama's live-and-recompiled (GPL-3; facts only, no
+ * code taken). Same XBE, same addresses. */
+extern void sub_0015CAF0_gen(void);
+
+void sub_0015CAF0(void)
+{
+    uint32_t o = MEM32(esp + 4);
+    uint32_t bgr;
+
+    if (!g_clx.vignette && o && MEM32(o + 0x68) == 2 && MEM32(o + 0x6C) == 0xFFFFFFFEu
+        && MEM32(o + 0x70) == 0xFEu && MEMF(o + 0x2C) == 0.0f && MEMF(o + 0x30) == 0.0f
+        && MEMF(o + 0x34) == 320.0f && MEMF(o + 0x38) == 240.0f
+        && ((bgr = MEM32(o + 0x4C) >> 8) & 0xFF) == ((bgr >> 8) & 0xFF)
+        && ((bgr >> 8) & 0xFF) == ((bgr >> 16) & 0xFF)) {
+        esp += 4;                               /* ret; the caller pops the argument */
+        return;
+    }
+    sub_0015CAF0_gen();
+}
+
+/* ── Distant grass sways too (grass_wind=1 / CLX_GRASS_WIND, default on) ──
+ *
+ * 0x001A9540 draws one grass patch. A near patch binds the wind vertex
+ * program (handle at [0x006B89A4]: the blades bend with time and away from
+ * the player); a patch fading out with distance binds a plain transform
+ * ([0x006B89DC]) and so stands still. Both read the same vertices and
+ * constants, so the fading patches get the wind program for the call: only
+ * the handle the fading path reads changes; the fade itself (texture factor,
+ * alpha reference) stays. Found by Mabec Games in their live-and-recompiled
+ * branch (GPL-3; the handle addresses only, no code taken). */
+extern void sub_001A9540_gen(void);
+static int s_grass_logged;
+
+void sub_001A9540(void)
+{
+    uint32_t wind = MEM32(0x006B89A4u), fade = MEM32(0x006B89DCu);
+
+    if (!g_clx.grass_wind || !wind) {
+        sub_001A9540_gen();
+        return;
+    }
+    if (!s_grass_logged) {
+        s_grass_logged = 1;
+        fprintf(stderr, "[grass] distant grass drawn with the wind program (grass_wind=1)\n");
+    }
+    MEM32(0x006B89DCu) = wind;
+    sub_001A9540_gen();
+    MEM32(0x006B89DCu) = fade;
+}

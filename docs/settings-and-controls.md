@@ -77,6 +77,9 @@ The menu saves its values here. You can also edit the file with a text editor. O
 | `button_glyphs` | `switch`, `xbox`, `ps` | Button icons in the game (default: Switch on the Switch, Xbox on a PC). |
 | `rumble_damage` | `0`, `1` | The pad rumbles when Conker is hurt (default on). The game itself rumbles only for a few scripted events; this adds hits and falls. The game's own Vibration setting also turns it off. |
 | `rumble_hit` | `0`, `1` | A short rumble when Conker's weapon hits an enemy, a stronger one when it finishes it (default on). The game's Vibration setting also turns it off. |
+| `vignette` | `0`, `1` | The game's darkened screen edges in the levels (default on). `0` draws the picture without them. |
+| `grass_wind` | `0`, `1` | Distant (fading) grass sways in the wind like the near grass (default on). `0` is the game's own: only the near grass moves. |
+| `language` | `english`, `french`, `german`, `spanish`, `italian`, `japanese` | The console language the game reads at start: menu and subtitle text from the disc's own banks (the voices stay English). Takes effect at the next start. Env: `RECOMP_LANGUAGE`. |
 | `key_<control>` | a key name | PC keyboard binding. See below. |
 | `pad_<control>` | a pad input | PC gamepad binding. See below. |
 

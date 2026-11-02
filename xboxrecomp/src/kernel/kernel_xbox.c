@@ -143,6 +143,16 @@ int xbox_video_widescreen(void)
     return xbox_widescreen;
 }
 
+/* The console's language setting (XC_LANGUAGE and the EEPROM block):
+ * RECOMP_LANGUAGE, a number 1-9 or a name; English by default. */
+static uint32_t xbox_language(void)
+{
+    static uint32_t lang;
+    if (!lang)
+        lang = xbox_eeprom_language(getenv("RECOMP_LANGUAGE"));
+    return lang;
+}
+
 NTSTATUS __stdcall xbox_ExQueryNonVolatileSetting(
     ULONG ValueIndex, PULONG Type, PVOID Value, ULONG ValueLength, PULONG ResultLength)
 {
@@ -154,9 +164,9 @@ NTSTATUS __stdcall xbox_ExQueryNonVolatileSetting(
 
     switch (ValueIndex) {
     case XC_LANGUAGE:
-        /* English = 1 */
+        /* English unless RECOMP_LANGUAGE says otherwise (xbox_eeprom.h) */
         if (ValueLength >= sizeof(ULONG)) {
-            *(PULONG)Value = 1;
+            *(PULONG)Value = xbox_language();
             if (Type) *Type = 4; /* REG_DWORD */
             if (ResultLength) *ResultLength = sizeof(ULONG);
         }
@@ -217,7 +227,8 @@ NTSTATUS __stdcall xbox_ExQueryNonVolatileSetting(
         /* The values above in their EEPROM layout (xbox_eeprom.h). Conker
          * reads its video flags this way; zeros meant no 16:9. */
         {
-            uint32_t n = xbox_eeprom_query(ValueIndex, (uint8_t *)Value, ValueLength, 1,
+            uint32_t n = xbox_eeprom_query(ValueIndex, (uint8_t *)Value, ValueLength,
+                                           xbox_language(),
                                            xbox_video_widescreen() ? XC_VIDEO_FLAGS_WIDESCREEN : 0,
                                            0, -300, 1);
             if (Type) *Type = 3;        /* REG_BINARY */

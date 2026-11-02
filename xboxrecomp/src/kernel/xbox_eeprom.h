@@ -28,6 +28,28 @@
 #define XBOX_EEPROM_VIDEO_STANDARD      0x58u
 #define XBOX_VIDEO_STANDARD_NTSC_M      0x00400100u
 
+/* XC_LANGUAGE (XDK): 1 English, 2 Japanese, 3 German, 4 French, 5 Spanish,
+ * 6 Italian, 7 Korean, 8 Chinese, 9 Portuguese. A number, or a name in any
+ * case ("french", "German"); anything else is English. RECOMP_LANGUAGE. */
+static inline uint32_t xbox_eeprom_language(const char *s)
+{
+    static const char *const names[] = { "english", "japanese", "german", "french",
+                                         "spanish", "italian", "korean", "chinese",
+                                         "portuguese" };
+    uint32_t i;
+    if (!s || !*s)
+        return 1;
+    if (*s >= '1' && *s <= '9' && !s[1])
+        return (uint32_t)(*s - '0');
+    for (i = 0; i < sizeof names / sizeof names[0]; i++) {
+        const char *a = names[i], *b = s;
+        while (*a && *b && *a == (*b | 0x20)) a++, b++;
+        if (!*a && !*b)
+            return i + 1;
+    }
+    return 1;
+}
+
 static inline void xbox_eeprom_put32(uint8_t *p, uint32_t v)
 {
     p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8);

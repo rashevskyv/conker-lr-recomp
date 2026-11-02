@@ -26,6 +26,9 @@ typedef struct {
     volatile int glyphs;         /* button icons: 0 Xbox, 1 Switch, 2 PlayStation */
     volatile int rumble_damage;  /* 1 = the pad rumbles when Conker is hurt (clx_rumble.c) */
     volatile int rumble_hit;     /* 1 = a short rumble when Conker hits something (clx_rumble.c) */
+    volatile int vignette;       /* 1 = the game's dark screen edges in the levels; 0 = off */
+    volatile int grass_wind;     /* 1 = distant (fading) grass sways like the near grass */
+    volatile int language;       /* XC_LANGUAGE: 1 English, 2 Japanese, 3 German, 4 French, 5 Spanish, 6 Italian (next start) */
 } ClxSettings;
 
 extern ClxSettings g_clx;
@@ -39,6 +42,8 @@ const char *clx_options_path(void);
 /* The aspect setting: "4:3" / "16:9" / "21:9", and its width / height. */
 const char *clx_aspect_name(int aspect);
 float clx_aspect_ratio(int aspect);
+/* The language setting's name ("english", "french", ...; RECOMP_LANGUAGE). */
+const char *clx_language_name(int language);
 /* PC: bind "key_<control>" or "pad_<control>" (sdl_keys.h names) and keep
  * it for the next save; reset: default keys and pad buttons, none saved. */
 int clx_bind(const char *name, const char *value);

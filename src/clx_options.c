@@ -16,6 +16,10 @@
  *   rumble_damage=1            the pad rumbles when Conker is hurt (the game only
  *                              rumbles for a few scripted events); 0 = off
  *   rumble_hit=1               a short rumble when Conker's weapon hits an enemy; 0 = off
+ *   vignette=1                 the game's darkened screen edges in the levels; 0 = off
+ *   grass_wind=1               distant grass sways in the wind like the near grass; 0 = the game's
+ *   language=english           menus and subtitles: english, french, german, spanish,
+ *                              italian, japanese (the disc's text; the voices stay English)
  *   fullscreen=borderless|window   borderless fullscreen on a PC (Alt+Enter/F11 toggles)
  *   mouse=0|1                  native mouse camera (F8 toggles at run time)
  *   key_<control>=<key>        PC keyboard: the key for a pad control, SDL key names
@@ -26,6 +30,7 @@
  * the environment wins over the file at boot (CLX_ASPECT, CLX_FPS, ...), except
  * fps_counter and volume: the file wins (clx_env.txt ships RECOMP_FPS_OSD=1). */
 #include "clx_settings.h"
+#include "kernel/xbox_eeprom.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,9 +77,9 @@ void clx_bind_reset(void)
 
 ClxSettings g_clx = {
 #if defined(__SWITCH__)
-    0, 0, 0, 0, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1 /* Switch button icons */
+    0, 0, 0, 0, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1 /* Switch button icons */
 #else
-    0, 0, 0, 0, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1 /* PC: render scale 100%, Xbox icons */
+    0, 0, 0, 0, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1 /* PC: render scale 100%, Xbox icons */
 #endif
 };
 
@@ -94,6 +99,16 @@ static int on(const char *v)
 }
 
 static const char *const k_aspects[] = { "4:3", "16:9", "21:9" };
+
+/* XC_LANGUAGE values the disc has text for (aid/text/<Name>). */
+static const char *const k_languages[] = {
+    "", "english", "japanese", "german", "french", "spanish", "italian",
+};
+
+const char *clx_language_name(int language)
+{
+    return k_languages[language >= 1 && language <= 6 ? language : 1];
+}
 
 static int aspect_parse(const char *v)
 {
@@ -143,6 +158,9 @@ void clx_options_load(void)
                 g_clx.glyphs = !strcmp(v, "xbox") ? 0 : !strcmp(v, "ps") ? 2 : 1;
             else if (!strcmp(line, "rumble_damage")) g_clx.rumble_damage = on(v);
             else if (!strcmp(line, "rumble_hit")) g_clx.rumble_hit = on(v);
+            else if (!strcmp(line, "vignette")) g_clx.vignette = on(v);
+            else if (!strcmp(line, "grass_wind")) g_clx.grass_wind = on(v);
+            else if (!strcmp(line, "language")) g_clx.language = (int)xbox_eeprom_language(v);
             else if (!strcmp(line, "fullscreen"))
                 setenv("CLX_BORDERLESS",
                        (!strcmp(v, "borderless") || !strcmp(v, "fullscreen") || on(v)) ? "1" : "0", 0);
@@ -163,6 +181,10 @@ void clx_options_load(void)
     if ((e = getenv("CLX_BUBBLE"))) g_clx.bubble_wide = strncmp(e, "classic", 7) != 0;
     if ((e = getenv("CLX_RUMBLE_DAMAGE"))) g_clx.rumble_damage = *e == '1';
     if ((e = getenv("CLX_RUMBLE_HIT"))) g_clx.rumble_hit = *e == '1';
+    if ((e = getenv("CLX_VIGNETTE"))) g_clx.vignette = *e == '1';
+    if ((e = getenv("CLX_GRASS_WIND"))) g_clx.grass_wind = *e == '1';
+    if ((e = getenv("RECOMP_LANGUAGE"))) g_clx.language = (int)xbox_eeprom_language(e);
+    if (g_clx.language < 1 || g_clx.language > 6) g_clx.language = 1;
     g_clx.fps_osd = on(getenv("RECOMP_FPS_OSD"));
     if ((e = getenv("RECOMP_AUDIO_VOLUME"))) g_clx.volume = atoi(e);
     if (g_clx.volume < 0 || g_clx.volume > 100) g_clx.volume = 100;
@@ -172,18 +194,23 @@ void clx_options_load(void)
     if (g_clx.aniso > 16) g_clx.aniso = 16;
     /* What the boot code reads (main.c, the renderers). */
     setenv("CLX_ASPECT", clx_aspect_name(g_clx.aspect), 0);
+    setenv("RECOMP_LANGUAGE", clx_language_name(g_clx.language), 1);
     printf("[options] %s: aspect %s, fps %d, camera %s%s, subtitles %s, FPS counter %s, volume %d,"
-           " scale handheld %d%% docked %d%%, aniso %dx, FXAA %s\n", clx_options_path(),
+           " scale handheld %d%% docked %d%%, aniso %dx, FXAA %s, vignette %s, grass wind %s,"
+           " language %s\n", clx_options_path(),
            clx_aspect_name(g_clx.aspect), g_clx.fps60 ? 60 : 30,
            g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? " (inverted)" : "",
            g_clx.bubble_wide ? "wide" : "classic", g_clx.fps_osd ? "on" : "off", g_clx.volume,
-           g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? "on" : "off");
+           g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? "on" : "off",
+           g_clx.vignette ? "on" : "off", g_clx.grass_wind ? "on" : "off",
+           clx_language_name(g_clx.language));
 }
 
 /* The keys the menu owns; any other line of the file is kept as it was. */
 static const char *const k_keys[] = {
     "aspect", "fps", "camera", "camera_invert_y", "camera_invert", "bubble", "fps_counter",
     "volume", "scale_handheld", "scale_docked", "aniso", "fxaa", "button_glyphs",
+    "vignette", "grass_wind", "language",
 };
 
 static int owned(const char *line)
@@ -220,12 +247,14 @@ int clx_options_save(void)
         fclose(in);
     }
     fprintf(out, "aspect=%s\nfps=%d\ncamera=%s\ncamera_invert_y=%d\nbubble=%s\nfps_counter=%d\n"
-            "volume=%d\nscale_handheld=%d\nscale_docked=%d\naniso=%d\nfxaa=%d\nbutton_glyphs=%s\n",
+            "volume=%d\nscale_handheld=%d\nscale_docked=%d\naniso=%d\nfxaa=%d\nbutton_glyphs=%s\n"
+            "vignette=%d\ngrass_wind=%d\nlanguage=%s\n",
             clx_aspect_name(g_clx.aspect), g_clx.fps60 ? 60 : 30,
             g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? 1 : 0,
             g_clx.bubble_wide ? "wide" : "classic", g_clx.fps_osd ? 1 : 0, g_clx.volume,
             g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? 1 : 0,
-            g_clx.glyphs == 0 ? "xbox" : g_clx.glyphs == 2 ? "ps" : "switch");
+            g_clx.glyphs == 0 ? "xbox" : g_clx.glyphs == 2 ? "ps" : "switch",
+            g_clx.vignette ? 1 : 0, g_clx.grass_wind ? 1 : 0, clx_language_name(g_clx.language));
 #if CLX_PC_INPUT
     {
         int i;

@@ -167,6 +167,9 @@ One `key=value` per line in `clx_options.txt` (Switch: `sdmc:/switch/clx/`; PC: 
 | `fps_counter` | `0` | `1`: show the FPS digits. |
 | `scale_handheld`, `scale_docked` | `150`, `225` | Switch render scale in percent. On a PC, `scale_handheld` is the render scale (default 100). |
 | `aniso`, `fxaa` | `16`, `1` | Anisotropic filtering and FXAA (Vulkan app). |
+| `vignette` | `1` | `0`: no darkened screen edges in the levels. |
+| `grass_wind` | `1` | Distant grass sways in the wind like the near grass; `0`: the game's own. |
+| `language` | `english` | Menu and subtitle text: `english`, `french`, `german`, `spanish`, `italian`, `japanese` (the voices stay English). Needs a restart. |
 
 ## Troubleshooting
 
