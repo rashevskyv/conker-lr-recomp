@@ -209,7 +209,8 @@ if(NINTENDO_SWITCH)
     # counted (switch_nx.c, "SDL's audio thread").
     target_link_options(${PROJECT_NAME} PRIVATE
         "LINKER:--wrap=SDL_SYS_SetThreadPriority"
-        "LINKER:--wrap=audrvVoiceAddWaveBuf")
+        "LINKER:--wrap=audrvVoiceAddWaveBuf"
+        "LINKER:--wrap=__syscall_thread_create")   # every pthread, paused at exit (switch_nx.c)
     set_property(SOURCE src/switch_nx.c APPEND PROPERTY
         INCLUDE_DIRECTORIES "${XBOXRECOMP_DIR}/src/apu")
     # switch_nx.c's loading screen asks EGL for the on-screen size.

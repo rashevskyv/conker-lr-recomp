@@ -1322,14 +1322,45 @@ static void clk_apply(void)
  * software was closed because an error occurred". So: clocks back, log out,
  * libnx's own service teardown, then the process ends. (Not from
  * userAppExit: __appExit calls that first.) HOME -> Close needs nothing here:
- * nothing locks exit, so the system ends the process itself. */
+ * nothing locks exit, so the system ends the process itself.
+ *
+ * Two more things the Castlevania and Contra ports found on the console
+ * (cvhd-recomp 0.254, hcu-switch 0.250-0.252, 2026-10-31):
+ *   - __appExit closes nvdrv, audout and hid; a thread still using them
+ *     (SDL's audio thread, Mesa's, made with pthread_create, so not in
+ *     xbox_nx_thread_at's table) aborts the process: the error screen.
+ *     So every pthread is recorded here too and paused before __appExit.
+ *   - As an NRO, libnx's exit does not send the applet's Exit (it leaves
+ *     that to hbloader); a title-takeover application that ends without it
+ *     gets the error screen. It is sent here (ISelfController cmd 0). */
 void __appExit(void);                       /* libnx: closes its services */
+
+/* Every pthread of the process (SDL, Mesa, the toolkit's pthread users):
+ * newlib's pthread_create goes through libnx's __syscall_thread_create,
+ * wrapped by the linker (CMakeLists.txt, --wrap). */
+#define NX_PTHREADS_MAX 64
+static Handle s_pthreads[NX_PTHREADS_MAX];
+static int s_npthreads;
+int __real___syscall_thread_create(void **thread, void *(*func)(void *), void *arg,
+                                   void *stack_addr, size_t stack_size);
+int __wrap___syscall_thread_create(void **thread, void *(*func)(void *), void *arg,
+                                   void *stack_addr, size_t stack_size)
+{
+    int rc = __real___syscall_thread_create(thread, func, arg, stack_addr, stack_size);
+    if (rc == 0 && thread && *thread) {
+        int i = __atomic_fetch_add(&s_npthreads, 1, __ATOMIC_RELAXED);
+        if (i < NX_PTHREADS_MAX)
+            s_pthreads[i] = ((Thread *)*thread)->handle;   /* libnx's pthread_t is its Thread */
+    }
+    return rc;
+}
 
 static void switch_exit_now(void)
 {
-    int i;
+    int i, n;
     Handle h, self = threadGetCurHandle();
     uintptr_t entry;
+    AppletType type;
 
     switch_saltynx_stop();
     clk_restore();
@@ -1348,6 +1379,13 @@ static void switch_exit_now(void)
     for (i = 0; xbox_nx_thread_at(i, &h, &entry); i++)
         if (h != self)
             svcSetThreadActivity(h, ThreadActivity_Paused);
+    n = s_npthreads < NX_PTHREADS_MAX ? s_npthreads : NX_PTHREADS_MAX;
+    for (i = 0; i < n; i++)
+        if (s_pthreads[i] && s_pthreads[i] != self)
+            svcSetThreadActivity(s_pthreads[i], ThreadActivity_Paused);
+    type = appletGetAppletType();
+    if (type == AppletType_Application || type == AppletType_SystemApplication)
+        serviceDispatch(appletGetServiceSession_SelfController(), 0);   /* ISelfController::Exit */
     __appExit();
     svcExitProcess();
 }
