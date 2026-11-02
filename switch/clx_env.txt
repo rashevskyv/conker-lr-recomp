@@ -37,6 +37,8 @@ RECOMP_FRAME_STATS=1
 # The log shows "[clock] ...". Comment out for the system's (CPU 1020 MHz);
 # the game thread is CPU-bound, so the CPU clock helps directly.
 # CLX_DOCK_BOOST=1 instead (with these commented out): boost while docked only.
+# With sys-clk running these are ignored (the log says so): set the game's
+# clocks in its profile, or NFSU2_CLOCK_FORCE=1 to apply these anyway.
 NFSU2_CPU_MHZ=1785
 NFSU2_GPU_MHZ=768
 NFSU2_MEM_MHZ=1600
