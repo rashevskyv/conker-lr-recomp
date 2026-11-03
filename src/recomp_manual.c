@@ -1232,7 +1232,7 @@ void sub_002F99A0(void)
     int free_cam = g_clx.cam_free, invert_y = g_clx.cam_invert;   /* the menu changes them */
     uint32_t cam = ecx, cfg, inp = eax, ret = MEM32(esp);
     int32_t ry = 0;
-    float saved = 0.0f, follow = 0.0f, kk;
+    float saved = 0.0f, saved_yaw = 0.0f, follow = 0.0f, kk, ky = 1.0f;
     int mouse_on = 0;
 
     if (k < 0.0f) {
@@ -1281,6 +1281,8 @@ void sub_002F99A0(void)
          * title's tuning as well. */
         free_cam = 0, kk = 1.0f, invert_y = 0;
         clx_mouse_set_mode(0);
+        if (ret == 0x002BBB54u)              /* the slingshot's aim: aim_speed */
+            kk = ky = (float)g_clx.aim_speed / 100.0f;
     } else {
         int pan = ret == 0x002FBC10u;   /* frying pan / first-person aim */
         clx_mouse_set_mode(pan ? 2 : 1);
@@ -1290,9 +1292,10 @@ void sub_002F99A0(void)
                 fprintf(stderr, "[cam] player camera (0x0003CB17): pitch x%g, auto-follow %s\n",
                         (double)k, free_cam ? "off" : "on");
         } else {
-            /* The pan's aim camera keeps the title's tuning; only the mouse
-             * stick is fed into it. */
-            free_cam = 0, kk = 1.0f, invert_y = 0;
+            /* The pan's aim camera keeps the title's tuning (aim_speed
+             * scales it); only the mouse stick is fed into it. */
+            free_cam = 0, invert_y = 0;
+            kk = ky = (float)g_clx.aim_speed / 100.0f;
         }
         /* clx_mouse.c adds the mouse deflection to the pad report itself, so
          * every camera/aim user sees it exactly like the right stick. This
@@ -1306,7 +1309,8 @@ void sub_002F99A0(void)
                 free_cam = 1;                /* no swing-back while the mouse drives it */
         }
     }
-    if (cfg < 0x00010000u || cfg >= 0x04000000u || (kk == 1.0f && !free_cam && !invert_y)) {
+    if (cfg < 0x00010000u || cfg >= 0x04000000u ||
+        (kk == 1.0f && ky == 1.0f && !free_cam && !invert_y)) {
         sub_002F99A0_gen();
         return;
     }
@@ -1338,10 +1342,16 @@ void sub_002F99A0(void)
             if (lo < 0.0f && lo > -60.0f) MEMF(cfg + 0x18) = lo - 10.0f;
             if (hi > 0.0f && hi < 70.0f) MEMF(cfg + 0x1C) = hi + 10.0f;
         }
-        saved = MEMF(cfg);
+        /* aim_speed (clx_options.txt, the menu): +0 pitch and +4 yaw speed
+         * of the aim camera's settings scaled for the call. The rates are
+         * linear in them, so it works for the stick and for anything mapped
+         * onto the stick (a gyro mapper). Issue 17, item 2. */
+        saved = MEMF(cfg); saved_yaw = MEMF(cfg + 4);
         MEMF(cfg) = saved * kk;
+        MEMF(cfg + 4) = saved_yaw * ky;
         sub_002F99A0_gen();
         MEMF(cfg) = saved;
+        MEMF(cfg + 4) = saved_yaw;
         if (free_cam) {
             MEMF(cfg + 0x0C) = r0; MEMF(cfg + 0x10) = r1;
             MEMF(cfg + 0x18) = lo; MEMF(cfg + 0x1C) = hi;

@@ -97,8 +97,8 @@ static const uint32_t *s_regs;
 static const Nv2aRawBatch *s_batch;
 
 /* Hitch accounting, as in nv2a_gl. */
-static uint32_t s_hz_progs, s_hz_texs, s_hz_draws;
-static uint64_t s_hz_prog_ns, s_hz_tex_ns, s_hz_tex_bytes;
+static uint32_t s_hz_progs, s_hz_texs, s_hz_draws, s_hz_pipes;
+static uint64_t s_hz_prog_ns, s_hz_tex_ns, s_hz_tex_bytes, s_hz_pipe_ns;
 static uint64_t hz_now(void)
 {
     struct timespec ts;
@@ -2779,9 +2779,15 @@ static VkPipeline pipe_get(const PipeKey *k)
     ci.layout = s_layout;
     VT("vkCreateGraphicsPipelines prog %d blend %u cmask %X depth %u topo %u\n", k->prog, k->blend,
        k->cmask, k->depth, k->topo);
-    if (vkCreateGraphicsPipelines(s_dev, s_pcache, 1, &ci, NULL, &pipe) != VK_SUCCESS) {
-        LOGE("pipeline creation failed\n");
-        return VK_NULL_HANDLE;
+    {
+        uint64_t t0 = hz_now();
+        VkResult r = vkCreateGraphicsPipelines(s_dev, s_pcache, 1, &ci, NULL, &pipe);
+        s_hz_pipes++;                     /* itemised in the [hitch] line */
+        s_hz_pipe_ns += hz_now() - t0;
+        if (r != VK_SUCCESS) {
+            LOGE("pipeline creation failed\n");
+            return VK_NULL_HANDLE;
+        }
     }
     if (s_npipes == VK_MAX_PIPE) {
         LOGE("pipeline table full\n");
@@ -5632,14 +5638,15 @@ static void vk_flip(void)
             if (now - window_ns > 10000000000ull) { window_ns = now; lines = 0; }
             if (dt > 50000000ull && lines++ < 30)
                 fprintf(stderr, "[hitch] frame %u: %.0f ms -- %u programs compiled (%.0f ms),"
-                        " %u textures %.1f MB (%.0f ms), %u draws\n", s_frame, dt / 1e6,
-                        s_hz_progs, s_hz_prog_ns / 1e6, s_hz_texs,
+                        " %u pipelines (%.0f ms), %u textures %.1f MB (%.0f ms), %u draws\n",
+                        s_frame, dt / 1e6, s_hz_progs, s_hz_prog_ns / 1e6,
+                        s_hz_pipes, s_hz_pipe_ns / 1e6, s_hz_texs,
                         s_hz_tex_bytes / 1048576.0, s_hz_tex_ns / 1e6, s_hz_draws);
         }
         last_ns = now;
         fs_frame(s_hz_draws, s_hz_progs, s_hz_texs);
-        s_hz_progs = s_hz_texs = s_hz_draws = 0;
-        s_hz_prog_ns = s_hz_tex_ns = s_hz_tex_bytes = 0;
+        s_hz_progs = s_hz_texs = s_hz_draws = s_hz_pipes = 0;
+        s_hz_prog_ns = s_hz_tex_ns = s_hz_tex_bytes = s_hz_pipe_ns = 0;
     }
     {
         static int on = -1;

@@ -16,6 +16,7 @@ typedef struct {
     volatile int fps60;          /* 1 = 60 Hz (applied at the next start) */
     volatile int cam_free;       /* 1 = no swing back behind Conker */
     volatile int cam_invert;     /* 1 = right stick's vertical axis flipped */
+    volatile int aim_speed;      /* 25..400: % of the title's aim speed (slingshot, weapon aim camera) */
     volatile int bubble_wide;    /* 1 = 40 x 6 subtitle box, 0 = the game's */
     volatile int fps_osd;        /* FPS counter */
     volatile int volume;         /* 0..100 */

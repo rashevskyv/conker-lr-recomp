@@ -50,6 +50,7 @@ static const Item k_items[] = {
     { "FRAME RATE", &g_clx.fps60, 2, { 0, 1 }, { "30", "60" }, RESTART },
     { "CAMERA", &g_clx.cam_free, 2, { 0, 1 }, { "CLASSIC", "FREE" }, 0 },
     { "INVERT CAMERA UP/DOWN", &g_clx.cam_invert, 2, { 0, 1 }, { "OFF", "ON" }, 0 },
+    { "AIM SPEED", &g_clx.aim_speed, 7, { 50, 75, 100, 125, 150, 200, 300 }, { 0 }, 0 },
     { "SUBTITLE BOX", &g_clx.bubble_wide, 2, { 1, 0 }, { "WIDE", "CLASSIC" }, 0 },
     { "VIGNETTE", &g_clx.vignette, 2, { 1, 0 }, { "ON", "OFF" }, 0 },
     { "DISTANT GRASS WIND", &g_clx.grass_wind, 2, { 1, 0 }, { "ON", "OFF" }, 0 },
@@ -228,7 +229,8 @@ static void value_text(const Item *it, char *val, int len)
     switch (it->kind) {
     case VALUE:
         snprintf(val, (size_t)len, "%d%s", *it->val,
-                 it->val == &g_clx.scale_handheld || it->val == &g_clx.scale_docked ? "%" : "");
+                 it->val == &g_clx.scale_handheld || it->val == &g_clx.scale_docked ||
+                 it->val == &g_clx.aim_speed ? "%" : "");
         for (k = 0; k < it->n; k++)
             if (it->v[k] == *it->val && it->name[k])
                 snprintf(val, (size_t)len, "%s", it->name[k]);

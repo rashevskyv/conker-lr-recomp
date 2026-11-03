@@ -4,6 +4,7 @@
  *   fps=30 | 60                60 Hz (experimental; from the next start)
  *   camera=classic | free      free: no automatic swing behind Conker
  *   camera_invert_y=0 | 1      flip the right stick's vertical axis (camera_invert=1 too)
+ *   aim_speed=100              % of the game's aim speed: slingshot and weapon aim camera (CLX_AIM_SPEED)
  *   bubble=wide | classic      subtitle box 40 x 6 lines (default) or the game's 20 x 4
  *   bubble_wrap= bubble_lines= bubble_height=   override the box (not in the menu)
  *   fps_counter=0 | 1          FPS digits top-left (RECOMP_FPS_OSD)
@@ -144,6 +145,7 @@ void clx_options_load(void)
             else if (!strcmp(line, "camera")) g_clx.cam_free = !strcmp(v, "free");
             else if (!strcmp(line, "camera_invert_y") || !strcmp(line, "camera_invert"))
                 g_clx.cam_invert = on(v);
+            else if (!strcmp(line, "aim_speed")) g_clx.aim_speed = atoi(v);
             else if (!strcmp(line, "bubble")) g_clx.bubble_wide = strncmp(v, "classic", 7) != 0;
             else if (!strcmp(line, "bubble_wrap")) setenv("CLX_BUBBLE_WRAP", v, 0);
             else if (!strcmp(line, "bubble_lines")) setenv("CLX_BUBBLE_LINES", v, 0);
@@ -178,6 +180,8 @@ void clx_options_load(void)
     if ((e = getenv("CLX_FPS"))) g_clx.fps60 = atoi(e) == 60;
     if ((e = getenv("CLX_CAM_FREE"))) g_clx.cam_free = *e == '1';
     if ((e = getenv("CLX_CAM_INVERT_Y"))) g_clx.cam_invert = *e == '1';
+    if ((e = getenv("CLX_AIM_SPEED"))) g_clx.aim_speed = atoi(e);
+    if (g_clx.aim_speed < 25 || g_clx.aim_speed > 400) g_clx.aim_speed = 100;
     if ((e = getenv("CLX_BUBBLE"))) g_clx.bubble_wide = strncmp(e, "classic", 7) != 0;
     if ((e = getenv("CLX_RUMBLE_DAMAGE"))) g_clx.rumble_damage = *e == '1';
     if ((e = getenv("CLX_RUMBLE_HIT"))) g_clx.rumble_hit = *e == '1';
@@ -195,11 +199,11 @@ void clx_options_load(void)
     /* What the boot code reads (main.c, the renderers). */
     setenv("CLX_ASPECT", clx_aspect_name(g_clx.aspect), 0);
     setenv("RECOMP_LANGUAGE", clx_language_name(g_clx.language), 1);
-    printf("[options] %s: aspect %s, fps %d, camera %s%s, subtitles %s, FPS counter %s, volume %d,"
-           " scale handheld %d%% docked %d%%, aniso %dx, FXAA %s, vignette %s, grass wind %s,"
+    printf("[options] %s: aspect %s, fps %d, camera %s%s, aim speed %d%%, subtitles %s, FPS counter %s,"
+           " volume %d, scale handheld %d%% docked %d%%, aniso %dx, FXAA %s, vignette %s, grass wind %s,"
            " language %s\n", clx_options_path(),
            clx_aspect_name(g_clx.aspect), g_clx.fps60 ? 60 : 30,
-           g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? " (inverted)" : "",
+           g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? " (inverted)" : "", g_clx.aim_speed,
            g_clx.bubble_wide ? "wide" : "classic", g_clx.fps_osd ? "on" : "off", g_clx.volume,
            g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? "on" : "off",
            g_clx.vignette ? "on" : "off", g_clx.grass_wind ? "on" : "off",
@@ -208,7 +212,7 @@ void clx_options_load(void)
 
 /* The keys the menu owns; any other line of the file is kept as it was. */
 static const char *const k_keys[] = {
-    "aspect", "fps", "camera", "camera_invert_y", "camera_invert", "bubble", "fps_counter",
+    "aspect", "fps", "camera", "camera_invert_y", "camera_invert", "aim_speed", "bubble", "fps_counter",
     "volume", "scale_handheld", "scale_docked", "aniso", "fxaa", "button_glyphs",
     "vignette", "grass_wind", "language",
 };
@@ -246,11 +250,11 @@ int clx_options_save(void)
                 fputs(line, out);
         fclose(in);
     }
-    fprintf(out, "aspect=%s\nfps=%d\ncamera=%s\ncamera_invert_y=%d\nbubble=%s\nfps_counter=%d\n"
-            "volume=%d\nscale_handheld=%d\nscale_docked=%d\naniso=%d\nfxaa=%d\nbutton_glyphs=%s\n"
-            "vignette=%d\ngrass_wind=%d\nlanguage=%s\n",
+    fprintf(out, "aspect=%s\nfps=%d\ncamera=%s\ncamera_invert_y=%d\naim_speed=%d\nbubble=%s\n"
+            "fps_counter=%d\nvolume=%d\nscale_handheld=%d\nscale_docked=%d\naniso=%d\nfxaa=%d\n"
+            "button_glyphs=%s\nvignette=%d\ngrass_wind=%d\nlanguage=%s\n",
             clx_aspect_name(g_clx.aspect), g_clx.fps60 ? 60 : 30,
-            g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? 1 : 0,
+            g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? 1 : 0, g_clx.aim_speed,
             g_clx.bubble_wide ? "wide" : "classic", g_clx.fps_osd ? 1 : 0, g_clx.volume,
             g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? 1 : 0,
             g_clx.glyphs == 0 ? "xbox" : g_clx.glyphs == 2 ? "ps" : "switch",
