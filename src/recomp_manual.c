@@ -121,6 +121,8 @@ void sub_0046E670(void) { crt_memmove(); }
 extern void nv2a_pb_set_semaphore_target(uint32_t guest_va);
 extern void sub_0053C190_gen(void);
 extern uint32_t (*recomp_lat_game_seq)(void);
+extern int xbox_Nv2aExecSleep(void);
+extern int xbox_Nv2aWaitWord(uint32_t va, uint32_t fence, unsigned ms);
 
 /* RECOMP_LAT_TRACE: the fence the frame being built will carry. */
 static uint32_t clx_lat_seq(void)
@@ -183,6 +185,24 @@ void sub_0053C190(void)
         {   /* RECOMP_FRAME_STATS: the game thread's wait for GPU progress */
             struct timespec t0, t1;
             clock_gettime(CLOCK_MONOTONIC, &t0);
+            /* The lifted function polls *sem until it reaches the fence
+             * (0x0053C2C0: while (seq - fence) < (seq - *sem)): a core at
+             * 100% on a PC, and on the Switch a sleep of at most 250 us a
+             * turn. Sleep until the executor's semaphore release instead
+             * (xbox_Nv2aWaitWord), then run the function, which finds the
+             * fence passed. Only for a fence already submitted (not the
+             * current sequence, which the function would insert first) and
+             * no block callback at +0x19FC (the title's own wait work);
+             * 100 ms at most, then the original wait takes over. Idea from
+             * cdetv's conker-live-recompiled 0.1.4 (MIT); own code. */
+            if (dev && sem && xbox_Nv2aExecSleep()) {
+                static int said;
+                uint32_t fence = MEM32(esp + 4);
+                if (!said++)
+                    fprintf(stderr, "[D3D] GPU-time wait sleeps (CLX_EXEC_SLEEP=0 spins)\n");
+                if ((int32_t)(MEM32(dev + 0x2C) - fence) > 0 && !MEM32(dev + 0x19FC))
+                    xbox_Nv2aWaitWord(sem, fence, 100);
+            }
             sub_0053C190_gen();
             clock_gettime(CLOCK_MONOTONIC, &t1);
             fs_add(FS_GAME_WAIT, (uint64_t)(t1.tv_sec - t0.tv_sec) * 1000000000ull

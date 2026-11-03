@@ -18,6 +18,7 @@ This repository ships source code only. The build pulls or links the parts below
 | MSYS2 UCRT64: clang/LLVM, mingw-w64 runtime, winpthreads | Windows build host; `libwinpthread-1.dll` is copied into `out/windows` | Apache-2.0 with LLVM exception; ZPL/MIT | Compiler and runtime DLLs |
 | OpenSSL, libepoxy | Linux build and run (system libraries) | Apache-2.0; MIT | Not bundled |
 | live-and-recompiled (giacomozama, TGP482; Mabec-games branch `launcher`) | reference only, no code in this repository | GPL-3.0 | Another port of the same game. Its addresses and findings guided the `vignette`, `grass_wind` and `language` options (`src/recomp_manual.c`); no code was copied |
+| conker-live-recompiled 0.1.4 (cdetv) | reference only, no code in this repository | MIT | Another port of the same game. Its sleeping GPU-time wait and idle executor are implemented here from scratch (`xbox_Nv2aWaitWord`, `RECOMP_EXEC_SLEEP` in `xboxrecomp/src/kernel/xbox_memory_layout.c`); no code was copied |
 
 The game itself (code, art, audio, text) belongs to its owners. Nothing from it is in
 this repository: `build_from_xbe.sh` reads your `default.xbe` on your machine.

@@ -230,6 +230,9 @@ out/linux/clx.sh ~/conker-disc
   статичної рекомпіляції Xbox (у `xboxrecomp/`).
 - **antoxa2584x**: [flatout2-sw](https://github.com/antoxa2584x/flatout2-sw) (MIT). Цей порт
   почався як його копія. Ідеї також з його портів NFSU, NFSU2, NFS Carbon і Burnout 3.
+- **cdetv**: [conker-live-recompiled](https://github.com/cdetv/conker-live-recompiled) (MIT).
+  Його 0.1.4 показала, що очікування GPU і простій виконавця можуть спати, а не крутитися;
+  тут це зроблено своїм кодом (`CLX_EXEC_SLEEP=0` повертає старе).
 - **danfromtico**: [mesa-switch](https://github.com/danfromtico/mesa-switch), Mesa NVK для
   відеочипа Switch. Проєкт **Mesa**: NVK.
 - Розробники **xemu**: код MCPX APU в наборі (LGPL-2.1, див. `xboxrecomp/NOTICE`).

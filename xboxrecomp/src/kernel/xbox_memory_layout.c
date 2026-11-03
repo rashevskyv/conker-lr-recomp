@@ -1168,7 +1168,6 @@ static void nv2a_ack_flags(volatile uint32_t *regs)
  * until woken, for at most a millisecond: the title's own poll loops wake
  * them (RECOMP_SPIN_HINT -> recomp_spin_wake), which is exactly when an
  * answer is wanted. While the pushbuffer has work they only yield. */
-#if !defined(_WIN32)
 #include <pthread.h>
 static pthread_mutex_t s_hw_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  s_hw_cond = PTHREAD_COND_INITIALIZER;
@@ -1201,18 +1200,6 @@ void recomp_spin_wake(void)
     pthread_cond_broadcast(&s_hw_cond);
     pthread_mutex_unlock(&s_hw_lock);
 }
-#else
-void recomp_hw_progress(void) {}
-void recomp_spin_yield(void);
-void recomp_spin_block(void) { recomp_spin_yield(); }
-void recomp_spin_wake(void)
-{
-    volatile uint32_t *pfb = (volatile uint32_t *)
-        ((uint8_t *)xbox_GetMemoryOffset() + 0xFD000000u + 0x100410u);
-    if (*pfb & 0x00010000u)
-        *pfb &= ~0x00010000u;
-}
-#endif
 
 /* Progress of the hardware threads, for guest poll loops to sleep on.
  *
@@ -1222,8 +1209,25 @@ void recomp_spin_wake(void)
  * to that while it waited for the GPU fence (D3D BlockOnTime). Now, every
  * 64 turns, it wakes them once and sleeps, lock released, until they report
  * a pass (recomp_hw_progress, after each pushbuffer scan and vblank) or
- * RECOMP_SPIN_SLEEP_US (default 250) runs out. =0 restores the old yield. */
-#if !defined(_WIN32)
+ * RECOMP_SPIN_SLEEP_US (default 250) runs out. =0 restores the old yield.
+ *
+ * Windows ran the "#else" of all this: the poll loop yielded (a core at 100%
+ * in D3D's fence wait) and the executor's idle pass was Sleep(0) (another
+ * core). MSYS2's winpthreads has pthread_cond_timedwait, so the same sleeps
+ * run there now. RECOMP_EXEC_SLEEP=0 brings the yields back, on every host
+ * (xbox_Nv2aExecSleep). The shape of this follows cdetv's
+ * conker-live-recompiled 0.1.4 (MIT): the waits sleep, the hardware threads
+ * ring them; written here from scratch on the primitives above. */
+int xbox_Nv2aExecSleep(void)
+{
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_EXEC_SLEEP");
+        on = !(e && *e == '0');
+    }
+    return on;
+}
+
 static pthread_cond_t  s_prog_cond = PTHREAD_COND_INITIALIZER;
 static volatile unsigned s_prog_count;
 static volatile int    s_prog_waiters;
@@ -1255,7 +1259,7 @@ void recomp_spin_block(void)
         const char *e = getenv("RECOMP_SPIN_SLEEP_US");
         us = e && *e ? atol(e) : 250;
     }
-    if (us <= 0) {
+    if (us <= 0 || !xbox_Nv2aExecSleep()) {
         recomp_spin_wake();
         recomp_spin_yield();
         return;
@@ -1275,15 +1279,54 @@ void recomp_spin_block(void)
     pthread_mutex_unlock(&s_hw_lock);
     xbox_gil_resume(d);
 }
-#endif
+
+/* A GPU-time wait that sleeps: until the dword at va has reached fence
+ * ((int32_t)(*word - fence) >= 0: the sequence compare D3D's BlockOnTime
+ * makes) or ms have passed, guest lock released. Woken by the hardware
+ * threads' progress: the executor reports every semaphore release
+ * (xbox_Nv2aSemaphoreWritten), so the sleeper wakes when a spinner would
+ * have seen the new time, not up to RECOMP_SPIN_SLEEP_US later. A title
+ * wrapper calls this in place of the lifted spin; 1 if the word got there. */
+int xbox_Nv2aWaitWord(uint32_t va, uint32_t fence, unsigned ms)
+{
+    volatile uint32_t *word = (volatile uint32_t *)((uint8_t *)xbox_GetMemoryOffset() + va);
+    struct timespec ts, end;
+    int d, done;
+
+    if ((int32_t)(*word - fence) >= 0)
+        return 1;
+    clock_gettime(CLOCK_REALTIME, &end);
+    end.tv_sec += ms / 1000;
+    end.tv_nsec += (long)(ms % 1000) * 1000000L;
+    if (end.tv_nsec >= 1000000000L) { end.tv_sec++; end.tv_nsec -= 1000000000L; }
+    d = xbox_gil_suspend();
+    pthread_mutex_lock(&s_hw_lock);
+    __atomic_add_fetch(&s_prog_waiters, 1, __ATOMIC_RELAXED);
+    while (!(done = (int32_t)(*word - fence) >= 0)) {
+        /* a millisecond at a time: a progress report that found no waiter
+         * (the relaxed count, read before this thread signed in) is caught
+         * by the timeout, as in recomp_spin_block */
+        clock_gettime(CLOCK_REALTIME, &ts);
+        if (ts.tv_sec > end.tv_sec || (ts.tv_sec == end.tv_sec && ts.tv_nsec >= end.tv_nsec))
+            break;
+        ts.tv_nsec += 1000000L;
+        if (ts.tv_nsec >= 1000000000L) { ts.tv_sec++; ts.tv_nsec -= 1000000000L; }
+        pthread_cond_timedwait(&s_prog_cond, &s_hw_lock, &ts);
+    }
+    __atomic_sub_fetch(&s_prog_waiters, 1, __ATOMIC_RELAXED);
+    pthread_mutex_unlock(&s_hw_lock);
+    xbox_gil_resume(d);
+    return done;
+}
+
+void xbox_Nv2aSemaphoreWritten(void)
+{
+    recomp_hw_progress();
+}
 
 static void nv2a_thread_pause(int busy)
 {
-#if defined(_WIN32)
-    (void)busy;
-    Sleep(0);
-#else
-    if (busy) {
+    if (busy || !xbox_Nv2aExecSleep()) {
         sched_yield();
     } else {
         struct timespec ts;
@@ -1300,7 +1343,6 @@ static void nv2a_thread_pause(int busy)
         __atomic_sub_fetch(&s_hw_sleepers, 1, __ATOMIC_RELAXED);
         pthread_mutex_unlock(&s_hw_lock);
     }
-#endif
 }
 
 static DWORD WINAPI nv2a_flag_thread(LPVOID param)

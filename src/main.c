@@ -468,6 +468,12 @@ static int game_main(void)
     setenv("RECOMP_AC97_READY", "plain", 0);
     setenv("RECOMP_USB", "1", 0);       /* the pad is on the MCPX's OHCI */
     setenv("RECOMP_PB_EXEC", "1", 0);   /* the title draws through NV2A */
+    {   /* CLX_EXEC_SLEEP=0: the executor's idle pass and the GPU-time wait
+         * spin/yield as before (RECOMP_EXEC_SLEEP, xbox_memory_layout.c) */
+        const char *e = getenv("CLX_EXEC_SLEEP");
+        if (e && *e)
+            setenv("RECOMP_EXEC_SLEEP", e, 1);
+    }
     /* The executor's off-screen batch cull (an NFSU2 speed-up) dropped draws
      * in Burnout 3; off until checked on this title. */
     setenv("RECOMP_CULL", "0", 0);

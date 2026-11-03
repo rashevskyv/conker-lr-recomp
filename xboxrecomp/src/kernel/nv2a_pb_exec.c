@@ -4485,6 +4485,7 @@ void nv2a_pb_exec_method(uint32_t subch, uint32_t method, uint32_t param)
         uint8_t *mem = (uint8_t *)xbox_GetMemoryOffset();
         *(volatile uint32_t *)(mem + s_sem_va) = param;
         recomp_lat_sem(param);
+        xbox_Nv2aSemaphoreWritten();   /* sleeping fence waits (xbox_Nv2aWaitWord) */
         return;
     }
     /* The pattern object's SET_MONOCHROME_COLOR0 (0x0310) latches into

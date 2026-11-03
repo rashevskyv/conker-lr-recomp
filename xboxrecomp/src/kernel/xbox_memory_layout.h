@@ -199,6 +199,15 @@ uint32_t xbox_ContiguousAllocatedBytes(void);
 int xbox_Nv2aMirrorFence(uint32_t device_ptr_va,
                          uint32_t put_off, uint32_t get_ptr_off);
 
+/* Sleeping waits (RECOMP_EXEC_SLEEP, default on; =0 yields/spins as before):
+ * the executor's idle pass, guest poll loops, and xbox_Nv2aWaitWord: sleep
+ * until the dword at va has reached fence (D3D's sequence compare) or ms
+ * pass, the guest lock released; 1 when it got there. The executor calls
+ * xbox_Nv2aSemaphoreWritten after each semaphore release to wake them. */
+int xbox_Nv2aExecSleep(void);
+int xbox_Nv2aWaitWord(uint32_t va, uint32_t fence, unsigned ms);
+void xbox_Nv2aSemaphoreWritten(void);
+
 /* Complete an audio-DSP command word as soon as the title posts one: the
  * polling thread zeroes it whenever it reads non-zero. The API form of
  * RECOMP_DSP_ACK, for a project that can compute the word's address from the

@@ -230,6 +230,9 @@ them back. See [Translating the game](docs/translation.md) and
   recompilation toolkit (in `xboxrecomp/`).
 - **antoxa2584x**: [flatout2-sw](https://github.com/antoxa2584x/flatout2-sw) (MIT). This port
   started as a copy of it. Ideas also from his NFSU, NFSU2, NFS Carbon and Burnout 3 ports.
+- **cdetv**: [conker-live-recompiled](https://github.com/cdetv/conker-live-recompiled) (MIT).
+  Its 0.1.4 showed that the GPU-time wait and the idle executor can sleep instead of spin;
+  this port has its own implementation of that (`CLX_EXEC_SLEEP=0` restores the spin).
 - **danfromtico**: [mesa-switch](https://github.com/danfromtico/mesa-switch), Mesa NVK for the
   Switch GPU. The **Mesa** project: NVK.
 - **xemu** developers: the MCPX APU code in the toolkit (LGPL-2.1, see `xboxrecomp/NOTICE`).
