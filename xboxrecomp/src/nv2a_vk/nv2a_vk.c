@@ -2827,29 +2827,67 @@ static void *read_file(const char *path, size_t *size)
     return d;
 }
 
-static void pcache_save(void)
+/* The file write runs on a thread of its own: on the Switch the cache grows
+ * to several MB and its write to the SD card held the recording thread (and
+ * so the frame) for 450-650 ms every 20 s (issue 17, items 4 and 5). The
+ * .tmp + rename keeps the file whole if the process ends mid-write. */
+struct pcache_job { char path[256]; void *d; size_t n; };
+static volatile int s_pcache_writing;
+
+static void pcache_write(struct pcache_job *j)
 {
-    char path[256], tmp[272];
-    size_t n = 0;
-    void *d;
+    char tmp[272];
     FILE *f;
-    if (!s_pcache || !cache_path(path, sizeof path, "vkpipecache.bin"))
-        return;
-    if (vkGetPipelineCacheData(s_dev, s_pcache, &n, NULL) != VK_SUCCESS || !n)
-        return;
-    d = malloc(n);
-    if (!d || vkGetPipelineCacheData(s_dev, s_pcache, &n, d) != VK_SUCCESS) { free(d); return; }
-    snprintf(tmp, sizeof tmp, "%s.tmp", path);
+    snprintf(tmp, sizeof tmp, "%s.tmp", j->path);
     if ((f = fopen(tmp, "wb"))) {
-        int ok = fwrite(d, 1, n, f) == n;
+        int ok = fwrite(j->d, 1, j->n, f) == j->n;
         fclose(f);
         if (ok) {
-            remove(path);                  /* FAT: rename does not replace */
-            rename(tmp, path);
+            remove(j->path);               /* FAT: rename does not replace */
+            rename(tmp, j->path);
         }
     }
-    free(d);
+    free(j->d);
+    free(j);
+}
+
+static void *pcache_write_thread(void *arg)
+{
+    pcache_write(arg);
+    s_pcache_writing = 0;
+    return NULL;
+}
+
+/* sync: write before returning (at exit); else hand the bytes to a thread. */
+static void pcache_save(int sync)
+{
+    size_t n = 0;
+    struct pcache_job *j;
+    if (!s_pcache || s_pcache_writing)     /* a write in flight: try again next time */
+        return;
+    j = calloc(1, sizeof *j);
+    if (!j || !cache_path(j->path, sizeof j->path, "vkpipecache.bin")) { free(j); return; }
+    if (vkGetPipelineCacheData(s_dev, s_pcache, &n, NULL) != VK_SUCCESS || !n) { free(j); return; }
+    j->d = malloc(n);
+    j->n = n;
+    if (!j->d || vkGetPipelineCacheData(s_dev, s_pcache, &n, j->d) != VK_SUCCESS) {
+        free(j->d); free(j); return;
+    }
     s_pipes_unsaved = 0;
+    if (!sync) {
+        pthread_t t;
+        pthread_attr_t at;
+        pthread_attr_init(&at);
+        pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED);
+        s_pcache_writing = 1;
+        if (pthread_create(&t, &at, pcache_write_thread, j) == 0) {
+            pthread_attr_destroy(&at);
+            return;
+        }
+        pthread_attr_destroy(&at);
+        s_pcache_writing = 0;
+    }
+    pcache_write(j);
 }
 
 static void prewarm(void)
@@ -2894,7 +2932,7 @@ static void prewarm(void)
     fprintf(stderr, "  [VK] prewarm: %u programs (%u SPIR-V from cache), %u pipelines in %.0f ms%s\n",
             nprog, s_spv_hits, npipe, (hz_now() - t0) / 1e6, bad ? " (a file ends in a bad record)" : "");
     if (s_pipes_unsaved)
-        pcache_save();
+        pcache_save(1);
 }
 
 /* ── Context ──────────────────────────────────────────────────────── */
@@ -5821,7 +5859,7 @@ static void vk_flip(void)
         uint64_t now = hz_now();
         if (s_pipes_unsaved && now - last_save > 20000000000ull) {
             last_save = now;
-            pcache_save();
+            pcache_save(0);
         }
     }
     {

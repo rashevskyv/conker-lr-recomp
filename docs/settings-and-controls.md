@@ -99,10 +99,13 @@ over the file at start. The exceptions are `fps_counter` and `volume`: the file 
 ## Button icons
 
 The game draws Xbox button icons (pause board, speech bubbles, tutorials).
-With `button_glyphs=switch` (or `ps`) they are drawn as the button at the
-same place on the pad in hand: the Xbox bottom button A becomes the Switch's
-B (PlayStation ✕), B becomes A (○), X becomes Y (□), Y becomes X (△); the
-triggers become ZL/ZR (L2/R2) and the stick a plain stick. The glyphs are the
+With `button_glyphs=switch` they are drawn as Switch buttons with the same
+letters (the Xbox A icon becomes a Switch A icon), because the Switch buttons
+act by their names (see Controls below); with `RECOMP_PAD_LAYOUT=position`
+in `clx_env.txt` the icons follow the position instead (Xbox A becomes the
+Switch's B). With `ps` they are drawn by position: the Xbox bottom button A
+becomes ✕, B becomes ○, X becomes □, Y becomes △. The triggers become ZL/ZR
+(L2/R2) and the stick a plain stick. The glyphs are the
 port's own drawings (`tools/make_glyphs.py`, preview `docs/glyphs_preview.png`),
 matched to the game's icon textures by the hash of their pixels
 (`src/clx_buttons.c`). Not replaced yet: the Xbox controller picture on the
