@@ -1292,9 +1292,11 @@ void sub_002F99A0(void)
                 fprintf(stderr, "[cam] player camera (0x0003CB17): pitch x%g, auto-follow %s\n",
                         (double)k, free_cam ? "off" : "on");
         } else {
-            /* The pan's aim camera keeps the title's tuning (aim_speed
-             * scales it); only the mouse stick is fed into it. */
-            free_cam = 0, invert_y = 0;
+            /* The aim camera (slingshot, frying pan, bat) keeps the title's
+             * tuning (aim_speed scales it). camera_invert_y applies here
+             * too (the user's request, 2026-11-05; off since 0.48). The
+             * game's own Invert Aim (pause Options) stacks with it. */
+            free_cam = 0;
             kk = ky = (float)g_clx.aim_speed / 100.0f;
         }
         /* clx_mouse.c adds the mouse deflection to the pad report itself, so

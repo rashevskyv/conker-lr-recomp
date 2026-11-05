@@ -66,7 +66,7 @@ The menu saves its values here. You can also edit the file with a text editor. O
 | `aspect` | `4:3`, `16:9`, `21:9` | Picture shape. 16:9 and 21:9 are a wider view, not a stretch. |
 | `fps` | `30`, `60` | Frame rate. 60 is experimental. Needs a restart. |
 | `camera` | `classic`, `free` | `free`: no automatic swing behind Conker. |
-| `camera_invert_y` | `0`, `1` | Flip the right stick up/down. `camera_invert` is the same key. |
+| `camera_invert_y` | `0`, `1` | Flip the right stick up/down, for the camera and for the aim (slingshot, frying pan, bat). `camera_invert` is the same key. The game's own Invert Aim (pause menu, Options) adds to it: use one of the two. |
 | `aim_speed` | `25`-`400` | Aim speed in % while aiming (slingshot, frying pan, bat): how fast the right stick, or a gyro mapped onto it, turns the aim. Default 100 (the game's own). Env: `CLX_AIM_SPEED`. |
 | `bubble` | `wide`, `classic` | Subtitle box size. |
 | `bubble_wrap`, `bubble_lines`, `bubble_height` | numbers | Set the subtitle box by hand (for translations). Not in the menu. |
@@ -131,6 +131,8 @@ The Switch buttons keep their names: **A** is A, **B** is B, **X** is X, **Y** i
 | + | Start |
 | − | settings menu |
 | Stick click | stick click |
+
+Slingshot: stand on the plate with the **B** sign, press **B**, aim with the right stick, fire with **ZR**; **B** puts it away. Anywhere else **B** takes the bat.
 
 **+**, **A** or **ZL** (the left trigger) skips a cutscene. On a PC: **Start**, **A** or the left trigger (keyboard: Enter, Space or Left Shift). To use the buttons by position (the Xbox layout),
 set `RECOMP_PAD_LAYOUT=position` in `clx_env.txt`.
