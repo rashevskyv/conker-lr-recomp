@@ -1311,6 +1311,22 @@ void sub_002F99A0(void)
                 free_cam = 1;                /* no swing-back while the mouse drives it */
         }
     }
+    /* gyro_aim (clx_gyro.c): the pad's rotation in this frame goes straight
+     * into the aim camera's angles, on top of the stick. The routine then
+     * lowers the yaw at +4 by the stick's rate and wraps it to 0..360, and
+     * lowers the pitch at +0x40 and holds it in the settings' limits; a
+     * lower yaw is right and a lower pitch is up (the stick's signs). Its
+     * frame time is the stack argument. Not while a scripted view (+0x80)
+     * sets both angles. */
+    if (g_clx.gyro_aim && (ret == 0x002FBC10u || ret == 0x002BBB54u) &&
+        cam >= 0x10000u && cam < 0x03FFF000u &&
+        cfg >= 0x10000u && cfg < 0x03FFF000u && !MEM32(cam + 0x80)) {
+        float right, up;
+        if (clx_gyro_aim(MEMF(esp + 4), &right, &up)) {
+            MEMF(cam + 4) -= right;
+            MEMF(cam + 0x40) -= up;
+        }
+    }
     if (cfg < 0x00010000u || cfg >= 0x04000000u ||
         (kk == 1.0f && ky == 1.0f && !free_cam && !invert_y)) {
         sub_002F99A0_gen();

@@ -51,6 +51,10 @@ static const Item k_items[] = {
     { "CAMERA", &g_clx.cam_free, 2, { 0, 1 }, { "CLASSIC", "FREE" }, 0 },
     { "INVERT CAMERA UP/DOWN", &g_clx.cam_invert, 2, { 0, 1 }, { "OFF", "ON" }, 0 },
     { "AIM SPEED", &g_clx.aim_speed, 7, { 50, 75, 100, 125, 150, 200, 300 }, { 0 }, 0 },
+#if defined(__SWITCH__)
+    { "GYRO AIM", &g_clx.gyro_aim, 2, { 0, 1 }, { "OFF", "ON" }, 0 },
+    { "GYRO SENSITIVITY", &g_clx.gyro_sens, 6, { 50, 75, 100, 150, 200, 300 }, { 0 }, 0 },
+#endif
     { "SUBTITLE BOX", &g_clx.bubble_wide, 2, { 1, 0 }, { "WIDE", "CLASSIC" }, 0 },
     { "VIGNETTE", &g_clx.vignette, 2, { 1, 0 }, { "ON", "OFF" }, 0 },
     { "DISTANT GRASS WIND", &g_clx.grass_wind, 2, { 1, 0 }, { "ON", "OFF" }, 0 },
@@ -230,7 +234,7 @@ static void value_text(const Item *it, char *val, int len)
     case VALUE:
         snprintf(val, (size_t)len, "%d%s", *it->val,
                  it->val == &g_clx.scale_handheld || it->val == &g_clx.scale_docked ||
-                 it->val == &g_clx.aim_speed ? "%" : "");
+                 it->val == &g_clx.aim_speed || it->val == &g_clx.gyro_sens ? "%" : "");
         for (k = 0; k < it->n; k++)
             if (it->v[k] == *it->val && it->name[k])
                 snprintf(val, (size_t)len, "%s", it->name[k]);

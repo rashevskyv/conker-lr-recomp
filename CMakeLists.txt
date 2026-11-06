@@ -56,6 +56,7 @@ set(GAME_SOURCES
     src/clx_rumble.c
     src/clx_buttons.c
     src/clx_mouse.c
+    src/clx_gyro.c
 )
 
 if(ANDROID)

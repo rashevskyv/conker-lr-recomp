@@ -17,6 +17,10 @@
  *   rumble_damage=1            the pad rumbles when Conker is hurt (the game only
  *                              rumbles for a few scripted events); 0 = off
  *   rumble_hit=1               a short rumble when Conker's weapon hits an enemy; 0 = off
+ *   gyro_aim=0 | 1             Switch: the pad's motion sensor turns the aim (slingshot, weapons)
+ *                              on top of the right stick; off by default
+ *   gyro_sens=100              % of the pad's own rotation (25-400)
+ *   gyro_invert_x=1, gyro_invert_y=1   reverse a gyro direction (not in the menu)
  *   vignette=1                 the game's darkened screen edges in the levels; 0 = off
  *   grass_wind=1               distant grass sways in the wind like the near grass; 0 = the game's
  *   language=english           menus and subtitles: english, french, german, spanish,
@@ -78,9 +82,9 @@ void clx_bind_reset(void)
 
 ClxSettings g_clx = {
 #if defined(__SWITCH__)
-    0, 0, 0, 0, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1 /* Switch button icons */
+    0, 0, 0, 0, 100, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1, 0, 100 /* Switch button icons */
 #else
-    0, 0, 0, 0, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1 /* PC: render scale 100%, Xbox icons */
+    0, 0, 0, 0, 100, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1, 0, 100 /* PC: render scale 100%, Xbox icons */
 #endif
 };
 
@@ -160,6 +164,10 @@ void clx_options_load(void)
                 g_clx.glyphs = !strcmp(v, "xbox") ? 0 : !strcmp(v, "ps") ? 2 : 1;
             else if (!strcmp(line, "rumble_damage")) g_clx.rumble_damage = on(v);
             else if (!strcmp(line, "rumble_hit")) g_clx.rumble_hit = on(v);
+            else if (!strcmp(line, "gyro_aim")) g_clx.gyro_aim = on(v);
+            else if (!strcmp(line, "gyro_sens")) g_clx.gyro_sens = atoi(v);
+            else if (!strcmp(line, "gyro_invert_x")) g_clx.gyro_invert_x = on(v);
+            else if (!strcmp(line, "gyro_invert_y")) g_clx.gyro_invert_y = on(v);
             else if (!strcmp(line, "vignette")) g_clx.vignette = on(v);
             else if (!strcmp(line, "grass_wind")) g_clx.grass_wind = on(v);
             else if (!strcmp(line, "language")) g_clx.language = (int)xbox_eeprom_language(v);
@@ -182,6 +190,8 @@ void clx_options_load(void)
     if ((e = getenv("CLX_CAM_INVERT_Y"))) g_clx.cam_invert = *e == '1';
     if ((e = getenv("CLX_AIM_SPEED"))) g_clx.aim_speed = atoi(e);
     if (g_clx.aim_speed < 25 || g_clx.aim_speed > 400) g_clx.aim_speed = 100;
+    if ((e = getenv("CLX_GYRO_AIM"))) g_clx.gyro_aim = *e == '1';
+    if (g_clx.gyro_sens < 25 || g_clx.gyro_sens > 400) g_clx.gyro_sens = 100;
     if ((e = getenv("CLX_BUBBLE"))) g_clx.bubble_wide = strncmp(e, "classic", 7) != 0;
     if ((e = getenv("CLX_RUMBLE_DAMAGE"))) g_clx.rumble_damage = *e == '1';
     if ((e = getenv("CLX_RUMBLE_HIT"))) g_clx.rumble_hit = *e == '1';
@@ -212,7 +222,8 @@ void clx_options_load(void)
 
 /* The keys the menu owns; any other line of the file is kept as it was. */
 static const char *const k_keys[] = {
-    "aspect", "fps", "camera", "camera_invert_y", "camera_invert", "aim_speed", "bubble", "fps_counter",
+    "aspect", "fps", "camera", "camera_invert_y", "camera_invert", "aim_speed", "gyro_aim", "gyro_sens",
+    "bubble", "fps_counter",
     "volume", "scale_handheld", "scale_docked", "aniso", "fxaa", "button_glyphs",
     "vignette", "grass_wind", "language",
 };
@@ -250,11 +261,13 @@ int clx_options_save(void)
                 fputs(line, out);
         fclose(in);
     }
-    fprintf(out, "aspect=%s\nfps=%d\ncamera=%s\ncamera_invert_y=%d\naim_speed=%d\nbubble=%s\n"
+    fprintf(out, "aspect=%s\nfps=%d\ncamera=%s\ncamera_invert_y=%d\naim_speed=%d\ngyro_aim=%d\n"
+            "gyro_sens=%d\nbubble=%s\n"
             "fps_counter=%d\nvolume=%d\nscale_handheld=%d\nscale_docked=%d\naniso=%d\nfxaa=%d\n"
             "button_glyphs=%s\nvignette=%d\ngrass_wind=%d\nlanguage=%s\n",
             clx_aspect_name(g_clx.aspect), g_clx.fps60 ? 60 : 30,
             g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? 1 : 0, g_clx.aim_speed,
+            g_clx.gyro_aim ? 1 : 0, g_clx.gyro_sens,
             g_clx.bubble_wide ? "wide" : "classic", g_clx.fps_osd ? 1 : 0, g_clx.volume,
             g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? 1 : 0,
             g_clx.glyphs == 0 ? "xbox" : g_clx.glyphs == 2 ? "ps" : "switch",

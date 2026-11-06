@@ -257,6 +257,85 @@ int xbox_nx_pad_read(unsigned port, uint16_t *digital, uint8_t analog[8],
     return 1;
 }
 
+int xbox_nx_pad_motion(unsigned port, float rate[3], float accel[3])
+{
+    /* Per slot: the handheld console or a Pro Controller, then a Joy-Con
+     * pair's left and right. */
+    static HidSixAxisSensorHandle h[NX_SRCS][3];
+    static u64 last[NX_SRCS];
+    static int started;
+    HidSixAxisSensorState st[17];
+    unsigned mask[NX_PADS];
+    int i, k, used = 0;
+
+    if (port >= NX_PADS)
+        return 0;
+    mutexLock(&s_lock);
+    if (!s_ready) {
+        mutexUnlock(&s_lock);
+        return 0;
+    }
+    if (!started) {
+        started = 1;
+        for (i = 0; i < NX_SRCS; i++) {
+            int n = 1;
+            hidGetSixAxisSensorHandles(&h[i][0], 1, s_src_id[i],
+                                       i ? HidNpadStyleTag_NpadFullKey
+                                         : HidNpadStyleTag_NpadHandheld);
+            if (i) {
+                hidGetSixAxisSensorHandles(&h[i][1], 2, s_src_id[i],
+                                           HidNpadStyleTag_NpadJoyDual);
+                n = 3;
+            }
+            for (k = 0; k < n; k++)
+                hidStartSixAxisSensor(h[i][k]);
+        }
+    }
+    nx_assign(mask);
+    rate[0] = rate[1] = rate[2] = accel[0] = accel[1] = accel[2] = 0.0f;
+    for (i = 0; i < NX_SRCS && !used; i++) {
+        u32 style;
+        u64 newest = 0;
+        int n;
+
+        if (!(mask[port] & (1u << i)))
+            continue;
+        style = hidGetNpadStyleSet(s_src_id[i]);
+        if (style & (HidNpadStyleTag_NpadHandheld | HidNpadStyleTag_NpadFullKey))
+            k = 0;
+        else if (i && (style & HidNpadStyleTag_NpadJoyDual))
+            k = 2;                      /* the right Joy-Con: the aiming hand */
+        else
+            continue;
+        n = (int)hidGetSixAxisSensorStates(h[i][k], st, 17);
+        for (k = 0; k < n; k++)
+            if (st[k].sampling_number > newest)
+                newest = st[k].sampling_number;
+        if (newest < last[i])
+            last[i] = 0;                /* the pad came back: its count restarted */
+        for (k = 0; k < n; k++) {
+            if (st[k].sampling_number <= last[i]
+                    || !(st[k].attributes & HidSixAxisSensorAttribute_IsConnected))
+                continue;
+            /* libnx: angular velocity in turns per second */
+            rate[0] += st[k].angular_velocity.x * 360.0f;
+            rate[1] += st[k].angular_velocity.y * 360.0f;
+            rate[2] += st[k].angular_velocity.z * 360.0f;
+            accel[0] += st[k].acceleration.x;
+            accel[1] += st[k].acceleration.y;
+            accel[2] += st[k].acceleration.z;
+            used++;
+        }
+        last[i] = newest;
+    }
+    mutexUnlock(&s_lock);
+    for (k = 0; k < 3 && used; k++) {
+        rate[k] /= (float)used;
+        accel[k] /= (float)used;
+    }
+    return used != 0;
+}
+
 /* Vibration handles for one input source, re-fetched when its style changes
  * (Joy-Con pair swapped for a Pro Controller, say). */
 typedef struct {

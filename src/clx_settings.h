@@ -30,6 +30,10 @@ typedef struct {
     volatile int vignette;       /* 1 = the game's dark screen edges in the levels; 0 = off */
     volatile int grass_wind;     /* 1 = distant (fading) grass sways like the near grass */
     volatile int language;       /* XC_LANGUAGE: 1 English, 2 Japanese, 3 German, 4 French, 5 Spanish, 6 Italian (next start) */
+    volatile int gyro_aim;       /* 1 = the pad's motion sensor turns the aim camera (clx_gyro.c; Switch) */
+    volatile int gyro_sens;      /* 25..400: % of the pad's own rotation */
+    volatile int gyro_invert_x;  /* 1 = gyro left/right reversed (file only) */
+    volatile int gyro_invert_y;  /* 1 = gyro up/down reversed (file only) */
 } ClxSettings;
 
 extern ClxSettings g_clx;
@@ -57,6 +61,10 @@ void clx_buttons_hook(unsigned int va, unsigned int color, unsigned int w, unsig
 /* A one-line prompt at the bottom of the screen for ms milliseconds
  * (clx_menu.c; NULL hides it; nothing while the menu is open). */
 void clx_prompt(const char *text, unsigned ms);
+
+/* Gyro aim (clx_gyro.c): degrees to turn the aim right and up in a frame of
+ * dt seconds; 0 = nothing to add. */
+int clx_gyro_aim(float dt, float *right, float *up);
 
 /* The in-game menu (clx_menu.c), called from clx_pad_hook. */
 void clx_menu_hook(unsigned char *report, unsigned host_buttons);

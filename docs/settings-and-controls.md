@@ -26,6 +26,8 @@ While the menu is open, the game gets no input. It keeps running: a cutscene goe
 | Camera | classic, free (no swing back behind Conker) | at once |
 | Invert camera up/down | off, on | at once |
 | Aim speed | 50 to 300 % of the game's aim speed (slingshot, weapon aim camera) | at once |
+| Gyro aim (Switch) | off, on: turn the console or the pad to aim, on top of the right stick | at once |
+| Gyro sensitivity (Switch) | 50 to 300 %: 100 turns the aim as far as the pad turns | at once |
 | Subtitle box | wide (40 characters x 6 lines), classic (the game's 20 x 4) | at once |
 | FPS counter | off, on | at once |
 | Button icons | Switch, Xbox, PlayStation (default: Switch on the Switch, Xbox on a PC) | after a restart |
@@ -68,6 +70,9 @@ The menu saves its values here. You can also edit the file with a text editor. O
 | `camera` | `classic`, `free` | `free`: no automatic swing behind Conker. |
 | `camera_invert_y` | `0`, `1` | Flip the right stick up/down, for the camera and for the aim (slingshot, frying pan, bat). `camera_invert` is the same key. The game's own Invert Aim (pause menu, Options) adds to it: use one of the two. |
 | `aim_speed` | `25`-`400` | Aim speed in % while aiming (slingshot, frying pan, bat): how fast the right stick, or a gyro mapped onto it, turns the aim. Default 100 (the game's own). Env: `CLX_AIM_SPEED`. |
+| `gyro_aim` | `0`, `1` | Switch: the motion sensor of the console (handheld), a Pro Controller or the right Joy-Con turns the aim (slingshot, frying pan, bat, weapons) on top of the right stick. Off by default. Env: `CLX_GYRO_AIM`. |
+| `gyro_sens` | `25`-`400` | Gyro sensitivity in %. 100: the aim turns as far as the pad turns. |
+| `gyro_invert_x`, `gyro_invert_y` | `0`, `1` | Reverse the gyro left/right or up/down. Not in the menu. |
 | `bubble` | `wide`, `classic` | Subtitle box size. |
 | `bubble_wrap`, `bubble_lines`, `bubble_height` | numbers | Set the subtitle box by hand (for translations). Not in the menu. |
 | `fps_counter` | `0`, `1` | Show the FPS digits top-left. |
