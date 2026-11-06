@@ -1226,14 +1226,26 @@ void clx_camera_curve_mouse(int on)
  * a gdb write watchpoint on it, then the disassembly. */
 extern void sub_002F99A0_gen(void);
 
+/* gyro_aim: the pad's turn joins the yaw step the routine left at +8 (see
+ * the wrapper below). gyro = clx_gyro_aim's answer; 2 logs what went in. */
+static void clx_gyro_step(uint32_t cam, uint32_t ret, int gyro, float right)
+{
+    if (!gyro)
+        return;
+    if (gyro == 2)
+        fprintf(stderr, "[gyro] camera user 0x%08X: yaw step %.2f (stick) + %.2f (gyro) deg\n",
+                ret - 5, (double)MEMF(cam + 8), (double)right);
+    MEMF(cam + 8) += right;
+}
+
 void sub_002F99A0(void)
 {
     static float k = -1.0f;
     int free_cam = g_clx.cam_free, invert_y = g_clx.cam_invert;   /* the menu changes them */
     uint32_t cam = ecx, cfg, inp = eax, ret = MEM32(esp);
     int32_t ry = 0;
-    float saved = 0.0f, saved_yaw = 0.0f, follow = 0.0f, kk, ky = 1.0f;
-    int mouse_on = 0;
+    float saved = 0.0f, saved_yaw = 0.0f, follow = 0.0f, kk, ky = 1.0f, gyro_right = 0.0f;
+    int mouse_on = 0, gyro = 0;
 
     if (k < 0.0f) {
         const char *e = getenv("CLX_CAM_PITCH");
@@ -1311,25 +1323,39 @@ void sub_002F99A0(void)
                 free_cam = 1;                /* no swing-back while the mouse drives it */
         }
     }
-    /* gyro_aim (clx_gyro.c): the pad's rotation in this frame goes straight
-     * into the aim camera's angles, on top of the stick. The routine then
-     * lowers the yaw at +4 by the stick's rate and wraps it to 0..360, and
-     * lowers the pitch at +0x40 and holds it in the settings' limits; a
-     * lower yaw is right and a lower pitch is up (the stick's signs). Its
-     * frame time is the stack argument. Not while a scripted view (+0x80)
-     * sets both angles. */
+    /* gyro_aim (clx_gyro.c): the pad's rotation in this frame, on top of
+     * the stick. Up/down goes into the pitch at +0x40 before the call (the
+     * routine lowers it by the stick's rate and holds it in the settings'
+     * limits; lower = up). Left/right goes into the frame's yaw step at +8
+     * after the call (degrees, positive = right): both aim users take the
+     * horizontal from that step in their next frame (0x002FBBE4 adds it to
+     * the weapon's turn, 0x002BBA6D subtracts it from its yaw) and never
+     * from the yaw angle at +4, which 0x002BBB27 overwrites; 0.56.3 wrote
+     * the angle and the aim did not move. The routine compares the sign of
+     * the last step for the stick's hold ramp, so last frame's addition
+     * comes off first. The frame time is the stack argument. Not while a
+     * scripted view (+0x80) sets both angles. */
     if (g_clx.gyro_aim && (ret == 0x002FBC10u || ret == 0x002BBB54u) &&
         cam >= 0x10000u && cam < 0x03FFF000u &&
         cfg >= 0x10000u && cfg < 0x03FFF000u && !MEM32(cam + 0x80)) {
-        float right, up;
-        if (clx_gyro_aim(MEMF(esp + 4), &right, &up)) {
-            MEMF(cam + 4) -= right;
+        static uint32_t last_cam;
+        static float last_add;
+        float up = 0.0f;
+        if (cam == last_cam)
+            MEMF(cam + 8) -= last_add;
+        last_cam = cam;
+        last_add = 0.0f;
+        gyro = clx_gyro_aim(MEMF(esp + 4), &last_add, &up);
+        if (gyro)
             MEMF(cam + 0x40) -= up;
-        }
+        else
+            last_add = 0.0f;
+        gyro_right = last_add;
     }
     if (cfg < 0x00010000u || cfg >= 0x04000000u ||
         (kk == 1.0f && ky == 1.0f && !free_cam && !invert_y)) {
         sub_002F99A0_gen();
+        clx_gyro_step(cam, ret, gyro, gyro_right);
         return;
     }
     /* CLX_CAM_FREE=1: with the right stick idle the function adds
@@ -1368,6 +1394,7 @@ void sub_002F99A0(void)
         MEMF(cfg) = saved * kk;
         MEMF(cfg + 4) = saved_yaw * ky;
         sub_002F99A0_gen();
+        clx_gyro_step(cam, ret, gyro, gyro_right);
         MEMF(cfg) = saved;
         MEMF(cfg + 4) = saved_yaw;
         if (free_cam) {

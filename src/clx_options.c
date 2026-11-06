@@ -21,6 +21,7 @@
  *                              on top of the right stick; off by default
  *   gyro_sens=100              % of the pad's own rotation (25-400)
  *   gyro_invert_x=1, gyro_invert_y=1   reverse a gyro direction (not in the menu)
+ *   gyro_roll=0                % of a pure sideways roll added to the gyro's turn (-400..400; not in the menu)
  *   vignette=1                 the game's darkened screen edges in the levels; 0 = off
  *   grass_wind=1               distant grass sways in the wind like the near grass; 0 = the game's
  *   language=english           menus and subtitles: english, french, german, spanish,
@@ -168,6 +169,7 @@ void clx_options_load(void)
             else if (!strcmp(line, "gyro_sens")) g_clx.gyro_sens = atoi(v);
             else if (!strcmp(line, "gyro_invert_x")) g_clx.gyro_invert_x = on(v);
             else if (!strcmp(line, "gyro_invert_y")) g_clx.gyro_invert_y = on(v);
+            else if (!strcmp(line, "gyro_roll")) g_clx.gyro_roll = atoi(v);
             else if (!strcmp(line, "vignette")) g_clx.vignette = on(v);
             else if (!strcmp(line, "grass_wind")) g_clx.grass_wind = on(v);
             else if (!strcmp(line, "language")) g_clx.language = (int)xbox_eeprom_language(v);
@@ -192,6 +194,7 @@ void clx_options_load(void)
     if (g_clx.aim_speed < 25 || g_clx.aim_speed > 400) g_clx.aim_speed = 100;
     if ((e = getenv("CLX_GYRO_AIM"))) g_clx.gyro_aim = *e == '1';
     if (g_clx.gyro_sens < 25 || g_clx.gyro_sens > 400) g_clx.gyro_sens = 100;
+    if (g_clx.gyro_roll < -400 || g_clx.gyro_roll > 400) g_clx.gyro_roll = 0;
     if ((e = getenv("CLX_BUBBLE"))) g_clx.bubble_wide = strncmp(e, "classic", 7) != 0;
     if ((e = getenv("CLX_RUMBLE_DAMAGE"))) g_clx.rumble_damage = *e == '1';
     if ((e = getenv("CLX_RUMBLE_HIT"))) g_clx.rumble_hit = *e == '1';

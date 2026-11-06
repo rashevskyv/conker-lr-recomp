@@ -73,6 +73,7 @@ The menu saves its values here. You can also edit the file with a text editor. O
 | `gyro_aim` | `0`, `1` | Switch: the motion sensor of the console (handheld), a Pro Controller or the right Joy-Con turns the aim (slingshot, frying pan, bat, weapons) on top of the right stick. Off by default. Env: `CLX_GYRO_AIM`. |
 | `gyro_sens` | `25`-`400` | Gyro sensitivity in %. 100: the aim turns as far as the pad turns. |
 | `gyro_invert_x`, `gyro_invert_y` | `0`, `1` | Reverse the gyro left/right or up/down. Not in the menu. |
+| `gyro_roll` | `-400`-`400` | % of a pure sideways roll added to the gyro's turn. Default 0: the aim follows a turn of the pad (about the screen's upright axis, or like a wheel while the pad is tilted back). 100: a roll with the right side down also aims right; a negative value reverses it. At 100 a turn about the screen's upright axis gets weaker while the pad is tilted back. Not in the menu. |
 | `bubble` | `wide`, `classic` | Subtitle box size. |
 | `bubble_wrap`, `bubble_lines`, `bubble_height` | numbers | Set the subtitle box by hand (for translations). Not in the menu. |
 | `fps_counter` | `0`, `1` | Show the FPS digits top-left. |
