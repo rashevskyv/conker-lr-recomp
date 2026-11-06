@@ -20,8 +20,8 @@
  *   gyro_aim=0 | 1             Switch: the pad's motion sensor turns the aim (slingshot, weapons)
  *                              on top of the right stick; off by default
  *   gyro_sens=100              % of the pad's own rotation (25-400)
- *   gyro_invert_x=1, gyro_invert_y=1   reverse a gyro direction (not in the menu)
- *   gyro_roll=0                % of a pure sideways roll added to the gyro's turn (-400..400; not in the menu)
+ *   gyro_invert_x=1, gyro_invert_y=1   reverse a gyro direction (it follows the stick's by itself)
+ *   gyro_roll=100              % of a flat pad's sideways tilt added to the gyro's turn (-400..400; not in the menu)
  *   vignette=1                 the game's darkened screen edges in the levels; 0 = off
  *   grass_wind=1               distant grass sways in the wind like the near grass; 0 = the game's
  *   language=english           menus and subtitles: english, french, german, spanish,
@@ -83,9 +83,9 @@ void clx_bind_reset(void)
 
 ClxSettings g_clx = {
 #if defined(__SWITCH__)
-    0, 0, 0, 0, 100, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1, 0, 100 /* Switch button icons */
+    0, 0, 0, 0, 100, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1, 0, 100, 0, 0, 100 /* Switch button icons */
 #else
-    0, 0, 0, 0, 100, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1, 0, 100 /* PC: render scale 100%, Xbox icons */
+    0, 0, 0, 0, 100, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1, 0, 100, 0, 0, 100 /* PC: render scale 100%, Xbox icons */
 #endif
 };
 
@@ -194,7 +194,7 @@ void clx_options_load(void)
     if (g_clx.aim_speed < 25 || g_clx.aim_speed > 400) g_clx.aim_speed = 100;
     if ((e = getenv("CLX_GYRO_AIM"))) g_clx.gyro_aim = *e == '1';
     if (g_clx.gyro_sens < 25 || g_clx.gyro_sens > 400) g_clx.gyro_sens = 100;
-    if (g_clx.gyro_roll < -400 || g_clx.gyro_roll > 400) g_clx.gyro_roll = 0;
+    if (g_clx.gyro_roll < -400 || g_clx.gyro_roll > 400) g_clx.gyro_roll = 100;
     if ((e = getenv("CLX_BUBBLE"))) g_clx.bubble_wide = strncmp(e, "classic", 7) != 0;
     if ((e = getenv("CLX_RUMBLE_DAMAGE"))) g_clx.rumble_damage = *e == '1';
     if ((e = getenv("CLX_RUMBLE_HIT"))) g_clx.rumble_hit = *e == '1';
@@ -226,6 +226,7 @@ void clx_options_load(void)
 /* The keys the menu owns; any other line of the file is kept as it was. */
 static const char *const k_keys[] = {
     "aspect", "fps", "camera", "camera_invert_y", "camera_invert", "aim_speed", "gyro_aim", "gyro_sens",
+    "gyro_invert_x", "gyro_invert_y",
     "bubble", "fps_counter",
     "volume", "scale_handheld", "scale_docked", "aniso", "fxaa", "button_glyphs",
     "vignette", "grass_wind", "language",
@@ -265,12 +266,13 @@ int clx_options_save(void)
         fclose(in);
     }
     fprintf(out, "aspect=%s\nfps=%d\ncamera=%s\ncamera_invert_y=%d\naim_speed=%d\ngyro_aim=%d\n"
-            "gyro_sens=%d\nbubble=%s\n"
+            "gyro_sens=%d\ngyro_invert_x=%d\ngyro_invert_y=%d\nbubble=%s\n"
             "fps_counter=%d\nvolume=%d\nscale_handheld=%d\nscale_docked=%d\naniso=%d\nfxaa=%d\n"
             "button_glyphs=%s\nvignette=%d\ngrass_wind=%d\nlanguage=%s\n",
             clx_aspect_name(g_clx.aspect), g_clx.fps60 ? 60 : 30,
             g_clx.cam_free ? "free" : "classic", g_clx.cam_invert ? 1 : 0, g_clx.aim_speed,
             g_clx.gyro_aim ? 1 : 0, g_clx.gyro_sens,
+            g_clx.gyro_invert_x ? 1 : 0, g_clx.gyro_invert_y ? 1 : 0,
             g_clx.bubble_wide ? "wide" : "classic", g_clx.fps_osd ? 1 : 0, g_clx.volume,
             g_clx.scale_handheld, g_clx.scale_docked, g_clx.aniso, g_clx.fxaa ? 1 : 0,
             g_clx.glyphs == 0 ? "xbox" : g_clx.glyphs == 2 ? "ps" : "switch",

@@ -54,6 +54,8 @@ static const Item k_items[] = {
 #if defined(__SWITCH__)
     { "GYRO AIM", &g_clx.gyro_aim, 2, { 0, 1 }, { "OFF", "ON" }, 0 },
     { "GYRO SENSITIVITY", &g_clx.gyro_sens, 6, { 50, 75, 100, 150, 200, 300 }, { 0 }, 0 },
+    { "GYRO FLIP LEFT/RIGHT", &g_clx.gyro_invert_x, 2, { 0, 1 }, { "OFF", "ON" }, 0 },
+    { "GYRO FLIP UP/DOWN", &g_clx.gyro_invert_y, 2, { 0, 1 }, { "OFF", "ON" }, 0 },
 #endif
     { "SUBTITLE BOX", &g_clx.bubble_wide, 2, { 1, 0 }, { "WIDE", "CLASSIC" }, 0 },
     { "VIGNETTE", &g_clx.vignette, 2, { 1, 0 }, { "ON", "OFF" }, 0 },

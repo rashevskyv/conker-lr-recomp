@@ -1226,6 +1226,25 @@ void clx_camera_curve_mouse(int on)
  * a gdb write watchpoint on it, then the disassembly. */
 extern void sub_002F99A0_gen(void);
 
+/* 1 = the game negates the right stick's Y on its way into the pad block
+ * (+0x18): Invert Aim is off and stick up looks down. 0x0004D470 negates it
+ * when its stack byte is set; 0x0004D320 gets that byte from 0x0004D1F0:
+ * single player = "the option byte 0x0084B140 is 0" (0x0084B141 is
+ * Vibration), with a profile (multiplayer) = the profile's byte +0x11B5. */
+static int clx_aim_y_negated(void)
+{
+    uint32_t p;
+    if (MEM8(0x007819D5u)) {
+        p = MEM32(0x0084A5F8u);
+        p = p >= 0x10000u && p < 0x03FFF000u ? MEM32(p + 0x564) : 0xFFFFFFFFu;
+        if (!p || (p >= 0x10000u && p < 0x03FFF000u && MEM8(p))) {
+            p = MEM32(0x00862CD0u);
+            return p >= 0x10000u && p < 0x03FFF000u && MEM8(p + 0x11B5);
+        }
+    }
+    return !MEM8(0x0084B140u);
+}
+
 /* gyro_aim: the pad's turn joins the yaw step the routine left at +8 (see
  * the wrapper below). gyro = clx_gyro_aim's answer; 2 logs what went in. */
 static void clx_gyro_step(uint32_t cam, uint32_t ret, int gyro, float right)
@@ -1334,22 +1353,29 @@ void sub_002F99A0(void)
      * the angle and the aim did not move. The routine compares the sign of
      * the last step for the stick's hold ramp, so last frame's addition
      * comes off first. The frame time is the stack argument. Not while a
-     * scripted view (+0x80) sets both angles. */
+     * scripted view (+0x80) sets both angles. Up/down follows the stick:
+     * where stick up looks down (the game negates Y and camera_invert_y does
+     * not turn it back for this user, or the reverse), the gyro reverses. */
     if (g_clx.gyro_aim && (ret == 0x002FBC10u || ret == 0x002BBB54u) &&
         cam >= 0x10000u && cam < 0x03FFF000u &&
         cfg >= 0x10000u && cfg < 0x03FFF000u && !MEM32(cam + 0x80)) {
         static uint32_t last_cam;
         static float last_add;
         float up = 0.0f;
+        int neg = clx_aim_y_negated(), down = neg != (invert_y != 0);
         if (cam == last_cam)
             MEMF(cam + 8) -= last_add;
         last_cam = cam;
         last_add = 0.0f;
-        gyro = clx_gyro_aim(MEMF(esp + 4), &last_add, &up);
+        gyro = clx_gyro_aim(MEMF(esp + 4), down, &last_add, &up);
         if (gyro)
             MEMF(cam + 0x40) -= up;
         else
             last_add = 0.0f;
+        if (gyro == 2)
+            fprintf(stderr, "[gyro] stick up looks %s (the game negates Y: %d, camera_invert_y here: %d),"
+                    " gyro flips: x %d, y %d\n", down ? "down" : "up", neg, invert_y != 0,
+                    g_clx.gyro_invert_x != 0, g_clx.gyro_invert_y != 0);
         gyro_right = last_add;
     }
     if (cfg < 0x00010000u || cfg >= 0x04000000u ||
