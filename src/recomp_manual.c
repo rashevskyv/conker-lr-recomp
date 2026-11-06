@@ -1227,10 +1227,12 @@ void clx_camera_curve_mouse(int on)
 extern void sub_002F99A0_gen(void);
 
 /* 1 = the game negates the right stick's Y on its way into the pad block
- * (+0x18): Invert Aim is off and stick up looks down. 0x0004D470 negates it
- * when its stack byte is set; 0x0004D320 gets that byte from 0x0004D1F0:
- * single player = "the option byte 0x0084B140 is 0" (0x0084B141 is
- * Vibration), with a profile (multiplayer) = the profile's byte +0x11B5. */
+ * (+0x18): its Invert Aim is off and stick up looks up. 0x0004D470 negates
+ * it when its stack byte is set; 0x0004D320 gets that byte from 0x0004D1F0:
+ * single player = "the option byte 0x0084B140 is 0" (the save's INVERT_AIM;
+ * 0x00352410 sets its default, 1 = inverted, stick up looks down;
+ * 0x0084B141 is VIBRATION), with a profile (multiplayer) = the profile's
+ * byte +0x11B5. */
 static int clx_aim_y_negated(void)
 {
     uint32_t p;
@@ -1345,7 +1347,8 @@ void sub_002F99A0(void)
     /* gyro_aim (clx_gyro.c): the pad's rotation in this frame, on top of
      * the stick. Up/down goes into the pitch at +0x40 before the call (the
      * routine lowers it by the stick's rate and holds it in the settings'
-     * limits; lower = up). Left/right goes into the frame's yaw step at +8
+     * limits; higher = up: 0.56.4 lowered it for the far edge up and the
+     * user's view went down). Left/right goes into the frame's yaw step at +8
      * after the call (degrees, positive = right): both aim users take the
      * horizontal from that step in their next frame (0x002FBBE4 adds it to
      * the weapon's turn, 0x002BBA6D subtracts it from its yaw) and never
@@ -1353,28 +1356,30 @@ void sub_002F99A0(void)
      * the angle and the aim did not move. The routine compares the sign of
      * the last step for the stick's hold ramp, so last frame's addition
      * comes off first. The frame time is the stack argument. Not while a
-     * scripted view (+0x80) sets both angles. Up/down follows the stick:
-     * where stick up looks down (the game negates Y and camera_invert_y does
-     * not turn it back for this user, or the reverse), the gyro reverses. */
+     * scripted view (+0x80) sets both angles. Up/down goes by the vertical
+     * aim inversion: the aim is inverted (stick up looks down) when the game
+     * does not negate Y (its Invert Aim is on, the default) and
+     * camera_invert_y does not turn it back for this user, or both do the
+     * reverse; then the far edge of the pad up looks down too. */
     if (g_clx.gyro_aim && (ret == 0x002FBC10u || ret == 0x002BBB54u) &&
         cam >= 0x10000u && cam < 0x03FFF000u &&
         cfg >= 0x10000u && cfg < 0x03FFF000u && !MEM32(cam + 0x80)) {
         static uint32_t last_cam;
         static float last_add;
         float up = 0.0f;
-        int neg = clx_aim_y_negated(), down = neg != (invert_y != 0);
+        int neg = clx_aim_y_negated(), inverted = neg == (invert_y != 0);
         if (cam == last_cam)
             MEMF(cam + 8) -= last_add;
         last_cam = cam;
         last_add = 0.0f;
-        gyro = clx_gyro_aim(MEMF(esp + 4), down, &last_add, &up);
+        gyro = clx_gyro_aim(MEMF(esp + 4), inverted, &last_add, &up);
         if (gyro)
-            MEMF(cam + 0x40) -= up;
+            MEMF(cam + 0x40) += up;
         else
             last_add = 0.0f;
         if (gyro == 2)
-            fprintf(stderr, "[gyro] stick up looks %s (the game negates Y: %d, camera_invert_y here: %d),"
-                    " gyro flips: x %d, y %d\n", down ? "down" : "up", neg, invert_y != 0,
+            fprintf(stderr, "[gyro] vertical aim %s (the game negates Y: %d, camera_invert_y here: %d),"
+                    " gyro flips: x %d, y %d\n", inverted ? "inverted" : "not inverted", neg, invert_y != 0,
                     g_clx.gyro_invert_x != 0, g_clx.gyro_invert_y != 0);
         gyro_right = last_add;
     }

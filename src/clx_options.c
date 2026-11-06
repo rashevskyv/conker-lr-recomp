@@ -20,8 +20,8 @@
  *   gyro_aim=0 | 1             Switch: the pad's motion sensor turns the aim (slingshot, weapons)
  *                              on top of the right stick; off by default
  *   gyro_sens=100              % of the pad's own rotation (25-400)
- *   gyro_invert_x=1, gyro_invert_y=1   reverse a gyro direction (it follows the stick's by itself)
- *   gyro_roll=100              % of a flat pad's sideways tilt added to the gyro's turn (-400..400; not in the menu)
+ *   gyro_invert_x=1, gyro_invert_y=1   reverse a gyro direction (up/down goes by the aim inversion by itself)
+ *   gyro_roll=0                % of a pure sideways roll added to the gyro's turn (-400..400; not in the menu)
  *   vignette=1                 the game's darkened screen edges in the levels; 0 = off
  *   grass_wind=1               distant grass sways in the wind like the near grass; 0 = the game's
  *   language=english           menus and subtitles: english, french, german, spanish,
@@ -83,9 +83,9 @@ void clx_bind_reset(void)
 
 ClxSettings g_clx = {
 #if defined(__SWITCH__)
-    0, 0, 0, 0, 100, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1, 0, 100, 0, 0, 100 /* Switch button icons */
+    0, 0, 0, 0, 100, 1, 0, 100, 150, 225, 16, 1, 1, 1, 1, 1, 1, 1, 0, 100 /* Switch button icons */
 #else
-    0, 0, 0, 0, 100, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1, 0, 100, 0, 0, 100 /* PC: render scale 100%, Xbox icons */
+    0, 0, 0, 0, 100, 1, 0, 100, 100, 225, 16, 1, 0, 1, 1, 1, 1, 1, 0, 100 /* PC: render scale 100%, Xbox icons */
 #endif
 };
 
@@ -194,7 +194,7 @@ void clx_options_load(void)
     if (g_clx.aim_speed < 25 || g_clx.aim_speed > 400) g_clx.aim_speed = 100;
     if ((e = getenv("CLX_GYRO_AIM"))) g_clx.gyro_aim = *e == '1';
     if (g_clx.gyro_sens < 25 || g_clx.gyro_sens > 400) g_clx.gyro_sens = 100;
-    if (g_clx.gyro_roll < -400 || g_clx.gyro_roll > 400) g_clx.gyro_roll = 100;
+    if (g_clx.gyro_roll < -400 || g_clx.gyro_roll > 400) g_clx.gyro_roll = 0;
     if ((e = getenv("CLX_BUBBLE"))) g_clx.bubble_wide = strncmp(e, "classic", 7) != 0;
     if ((e = getenv("CLX_RUMBLE_DAMAGE"))) g_clx.rumble_damage = *e == '1';
     if ((e = getenv("CLX_RUMBLE_HIT"))) g_clx.rumble_hit = *e == '1';

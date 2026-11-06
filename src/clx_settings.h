@@ -33,8 +33,8 @@ typedef struct {
     volatile int gyro_aim;       /* 1 = the pad's motion sensor turns the aim camera (clx_gyro.c; Switch) */
     volatile int gyro_sens;      /* 25..400: % of the pad's own rotation */
     volatile int gyro_invert_x;  /* 1 = gyro left/right reversed */
-    volatile int gyro_invert_y;  /* 1 = gyro up/down reversed (on top of the stick's inversion) */
-    volatile int gyro_roll;      /* -400..400: % of a flat pad's sideways tilt added to the gyro's turn (file only) */
+    volatile int gyro_invert_y;  /* 1 = gyro up/down reversed (on top of the vertical aim inversion) */
+    volatile int gyro_roll;      /* -400..400: % of a sideways roll added to the gyro's turn (file only) */
 } ClxSettings;
 
 extern ClxSettings g_clx;
@@ -64,9 +64,9 @@ void clx_buttons_hook(unsigned int va, unsigned int color, unsigned int w, unsig
 void clx_prompt(const char *text, unsigned ms);
 
 /* Gyro aim (clx_gyro.c): degrees to turn the aim right and up in a frame of
- * dt seconds; 0 = nothing to add, 2 = it logged this frame. stick_down =
- * stick up looks down now (the gyro's up/down follows the stick). */
-int clx_gyro_aim(float dt, int stick_down, float *right, float *up);
+ * dt seconds; 0 = nothing to add, 2 = it logged this frame. inverted = the
+ * vertical aim is inverted now (stick up looks down; the gyro goes with it). */
+int clx_gyro_aim(float dt, int inverted, float *right, float *up);
 
 /* The in-game menu (clx_menu.c), called from clx_pad_hook. */
 void clx_menu_hook(unsigned char *report, unsigned host_buttons);

@@ -1,23 +1,23 @@
 /* Gyro aim (gyro_aim=1; Switch): the pad's rotation turns the aim camera,
  * on top of the right stick.
  *
- * The camera routine 0x002F99A0 keeps the pitch at [cam+0x40] (lower = up,
+ * The camera routine 0x002F99A0 keeps the pitch at [cam+0x40] (higher = up,
  * limits in the settings) and leaves the frame's yaw step at [cam+8]
  * (degrees, positive = right). The aim's users (0x002FB960 slingshot, pan
  * and bat; 0x002BAEC0) take the horizontal from that step, not from the
- * yaw angle at [cam+4]. The wrapper (recomp_manual.c) lowers the pitch
+ * yaw angle at [cam+4]. The wrapper (recomp_manual.c) moves the pitch
  * before the call and adds to the step after it, so the stick's curve,
  * dead zone and ramp stay out of the way.
  *
- * Directions follow the right stick. Left/right: the side of the pad that
- * goes down, or the way the pad turns, is the way the aim goes. Up/down: the
- * far edge up does what stick up does, so it reverses with the stick
- * (camera_invert_y, the game's Invert Aim; the wrapper says which).
+ * Up/down goes by the vertical aim inversion, as the stick does: not
+ * inverted (stick up looks up) = the far edge of the pad up looks up;
+ * inverted (stick up looks down: the game's Invert Aim, on by default, and
+ * camera_invert_y turning it back; the wrapper says which) = it looks down.
  *
  *   gyro_aim=0 | 1          off by default (menu: GYRO AIM)
  *   gyro_sens=100           % : 100 = the view turns as far as the pad (GYRO SENSITIVITY)
  *   gyro_invert_x=1, gyro_invert_y=1   reverse a direction on top of that (GYRO FLIP ...)
- *   gyro_roll=100           % of a flat pad's sideways tilt added to the turn; 0 = turns only (file only)
+ *   gyro_roll=0             % of a pure sideways roll added to the turn; negative reverses it (file only)
  *   CLX_GYRO_DEADZONE=1     degrees per second ignored (sensor drift)
  *
  * Self-check: gcc -DCLX_GYRO_TEST src/clx_gyro.c -lm && ./a.out
@@ -40,21 +40,14 @@
  * turning it like a wheel about the screen's normal both aim sideways,
  * and a pad held upside down still turns the right way. A pure roll about
  * the line of sight (a wheel with the screen upright, a sideways tilt with
- * the pad flat) is the vertical's blind spot.
- * A pad held flat (screen up) is aimed by tilting it sideways (console log,
- * 0.56.4: rates about y with the acceleration at (0, -0.1, -0.9), and the
- * view went the other way). So within 13 degrees of flat the turn is the
- * plain rotation about the vertical plus roll_k x the roll, and from 37
- * degrees it is the player-space turn alone; between them the two blend.
- * A rotation about the pad's y axis changes its meaning on the way (a tilt
- * when flat, a turn when upright), so near 26 degrees it does nothing.
+ * the pad flat) is the vertical's blind spot: roll_k adds it.
  * ponytail: the pitch is the pad's own x axis; with the pad rolled far to
  * one side it mixes with the turn. Project x off the gravity if it matters. */
 static void gyro_map(const float w[3], const float a[3], float dt, float gain,
                      float roll_k, float dead, float g[3], float *right,
                      float *up, float part[2])
 {
-    float uy, uz, n, world, roll, local, yaw, lean, pitch, mag;
+    float uy, uz, n, world, roll, local, yaw, pitch, mag;
     int i, first = g[0] == 0.0f && g[1] == 0.0f && g[2] == 0.0f;
 
     for (i = 0; i < 3 && isfinite(a[0] + a[1] + a[2]); i++)
@@ -67,11 +60,8 @@ static void gyro_map(const float w[3], const float a[3], float dt, float gain,
     world = w[1] * uy + w[2] * uz;      /* about the vertical, positive = to the left */
     roll = w[2] * uy - w[1] * uz;       /* about the line of sight, positive = left side down */
     local = sqrtf(w[1] * w[1] + w[2] * w[2]);
-    yaw = copysignf(fminf(fabsf(world) * 1.41421356f, local), world);
-    lean = (37.0f - fabsf(atan2f(uy, uz)) * 57.29578f) / 24.0f;   /* 1 = flat, screen up */
-    lean = lean < 0.0f ? 0.0f : lean > 1.0f ? 1.0f : lean;
-    yaw += lean * (world + roll * roll_k - yaw);
-    pitch = w[0];                       /* positive = up */
+    yaw = copysignf(fminf(fabsf(world) * 1.41421356f, local), world) + roll * roll_k;
+    pitch = w[0];                       /* positive = the far edge up */
     part[0] = -world;
     part[1] = -roll;
     mag = sqrtf(yaw * yaw + pitch * pitch);
@@ -93,9 +83,9 @@ int xbox_nx_pad_motion(unsigned port, float rate[3], float accel[3]);
 #endif
 
 /* Degrees to turn the aim right and up in this frame of dt seconds; 0 when
- * the gyro has nothing to add. stick_down = stick up looks down now: the
- * gyro's up/down reverses with it. */
-int clx_gyro_aim(float dt, int stick_down, float *right, float *up)
+ * the gyro has nothing to add. inverted = the vertical aim is inverted now
+ * (stick up looks down): then the far edge up looks down too. */
+int clx_gyro_aim(float dt, int inverted, float *right, float *up)
 {
 #if defined(__SWITCH__)
     static float g[3], dead = -1.0f;
@@ -122,7 +112,7 @@ int clx_gyro_aim(float dt, int stick_down, float *right, float *up)
     gyro_map(w, a, dt, (float)g_clx.gyro_sens / 100.0f, (float)g_clx.gyro_roll / 100.0f,
              dead, g, right, up, part);
     if (g_clx.gyro_invert_x) *right = -*right;
-    if (!g_clx.gyro_invert_y != !stick_down) *up = -*up;
+    if (!g_clx.gyro_invert_y != !inverted) *up = -*up;
     if (*right == 0.0f && *up == 0.0f)
         return 0;
     /* What the sensor says, for the log: 60 lines, one a second while the
@@ -141,7 +131,7 @@ int clx_gyro_aim(float dt, int stick_down, float *right, float *up)
     }
     return 1;
 #else
-    (void)dt; (void)stick_down; (void)right; (void)up;
+    (void)dt; (void)inverted; (void)right; (void)up;
     (void)gyro_map;
     return 0;
 #endif
@@ -176,29 +166,20 @@ int main(void)
     assert(close_to(r, 3) && close_to(u, 0));
     RUN(down, 0, 0, -90);                       /* upside down: the same turn aims the other way */
     assert(close_to(r, -3) && close_to(u, 0));
-    RUNK(tilted, 1.0f, 0, 63.64f, -63.64f);     /* a pure roll, right side down: held up, nothing */
+    RUN(tilted, 0, 63.64f, -63.64f);            /* a pure roll, right side down */
     assert(close_to(r, 0) && close_to(u, 0) && close_to(part[1], 90));
-    RUNK(flat, 1.0f, 0, 90, 0);                 /* flat, right side down: right */
+    RUNK(tilted, 1.0f, 0, 63.64f, -63.64f);     /* gyro_roll=100: it aims right */
     assert(close_to(r, 3) && close_to(u, 0));
-    RUNK(flat, 1.0f, 0, 0, 90);                 /* flat, turned to the left: left */
+    RUNK(upright, -1.0f, 0, 0, -90);            /* gyro_roll=-100: the wheel the other way */
     assert(close_to(r, -3) && close_to(u, 0));
-    RUNK(flat, 0.0f, 0, 90, 0);                 /* gyro_roll=0: turns only */
-    assert(close_to(r, 0) && close_to(u, 0));
-    RUNK(flat, -1.0f, 0, 90, 0);                /* gyro_roll=-100: the tilt the other way */
-    assert(close_to(r, -3) && close_to(u, 0));
-    {   /* the console's 0.56.4 log: flat, left side down went right, right side down went left */
-        static const float a1[3] = { -0.09f, -0.10f, -0.90f }, a2[3] = { 0.31f, -0.17f, -0.81f },
-                           a3[3] = { 0.05f, -0.02f, -0.96f }, a4[3] = { 0.03f, -0.70f, -0.47f };
-        RUNK(a1, 1.0f, -10, -74, -19);
-        assert(r < -1.0f);
-        RUNK(a2, 1.0f, 16, 57, 15);
-        assert(r > 0.8f);
-        RUNK(a3, 1.0f, 68, 10, 1);              /* far edge up: up, as before */
-        assert(u > 2.0f);
-        RUNK(a4, 1.0f, 3, -42, -4);             /* its 0.56.3 log: held up 56 degrees, turned right */
-        assert(r > 1.3f);
+    {   /* the console's 0.56.4 log, left/right as the user accepted it */
+        static const float a1[3] = { -0.09f, -0.10f, -0.90f }, a2[3] = { 0.31f, -0.17f, -0.81f };
+        RUN(a1, -10, -74, -19);
+        assert(r > 1.0f && r < 1.6f);           /* the log: 1.42 (its gravity was smoothed) */
+        RUN(a2, 16, 57, 15);
+        assert(r < -1.0f && r > -1.5f);         /* the log: -1.29 */
     }
-    RUN(tilted, 60, 0, 0);                      /* back of the pad turned up: up */
+    RUN(tilted, 60, 0, 0);                      /* far edge of the pad turned up: up */
     assert(close_to(r, 0) && close_to(u, 2));
     g[0] = g[1] = g[2] = 0; w[0] = 0.5f; w[1] = w[2] = 0;
     gyro_map(w, flat, dt, 1.0f, 0.0f, 1.0f, g, &r, &u, part);   /* inside the dead zone */
