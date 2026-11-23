@@ -1,0 +1,21 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Conker: Live & Reloaded",
+  "system": "Xbox",
+  "type": "recomp",
+  "project": "Conker: Live & Reloaded Recompiled",
+  "status": "playable",
+  "targets": [
+    "Switch",
+    "Linux",
+    "Windows"
+  ],
+  "toolchain": "Xboxrecomp",
+  "approach": "Static recompilation of the XBE to C, deko3d renderer on Switch",
+  "maintainers": [
+    {
+      "name": "rashevskyv",
+      "link": "https://github.com/rashevskyv"
+    }
+  ]
+}
